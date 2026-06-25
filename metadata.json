@@ -1,0 +1,6 @@
+{
+  "name": "GCC HR",
+  "description": "Enterprise-grade Human Resources, Payroll, Asset Management, Equipment Maintenance, and Project Management platform designed for GCC enterprises.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
