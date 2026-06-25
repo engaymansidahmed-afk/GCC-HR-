@@ -1,0 +1,8 @@
+{
+  "name": "GCC HR",
+  "short_name": "GCC HR",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#1565C0",
+  "background_color": "#FFFFFF"
+}
