@@ -39,62 +39,85 @@ import { EnterpriseRequest, ApprovalHistoryItem, Employee } from '../types';
 
 export const REQUEST_CATEGORIES = {
   hr: {
-    labelEn: 'HR Requests',
-    labelAr: 'طلبات الموارد البشرية',
+    labelEn: 'Human Resources',
+    labelAr: 'الموارد البشرية',
     color: 'blue',
     types: [
-      'Leave Request', 'Emergency Leave', 'Sick Leave', 'Maternity Leave', 'Paternity Leave', 'Annual Leave',
-      'Exit/Re-entry Visa Request', 'Final Exit Request', 'Passport Release Request', 'Iqama Release Request',
-      'Employment Certificate Request', 'Salary Certificate Request', 'Experience Certificate Request',
-      'Employee Information Update', 'Personal Data Change', 'Bank Account Change', 'Transfer Request',
-      'Promotion Request', 'Resignation Request', 'Contract Renewal Request', 'Training Request', 'Recruitment Request'
-    ]
-  },
-  payroll: {
-    labelEn: 'Payroll Requests',
-    labelAr: 'طلبات الرواتب والأجور',
-    color: 'emerald',
-    types: [
-      'Salary Advance', 'Employee Loan', 'Loan Settlement', 'Loan Reschedule',
-      'Overtime Request', 'Bonus Request', 'Deduction Appeal', 'Expense Reimbursement'
-    ]
-  },
-  admin: {
-    labelEn: 'Administrative Requests',
-    labelAr: 'الطلبات الإدارية',
-    color: 'purple',
-    types: [
-      'Permission Request (Hourly Permission)', 'Late Arrival Justification', 'Early Departure Request',
-      'Attendance Adjustment', 'Missing Check-In', 'Missing Check-Out', 'Shift Change Request',
-      'Business Trip Request', 'Accommodation Request', 'Transportation Request'
-    ]
-  },
-  assets: {
-    labelEn: 'Assets & Equipment Requests',
-    labelAr: 'طلبات الأصول والمعدات',
-    color: 'orange',
-    types: [
-      'Asset Custody Request', 'Asset Return', 'Laptop Request', 'Mobile Phone Request', 'SIM Card Request',
-      'Vehicle Request', 'Fuel Request', 'Heavy Equipment Request', 'Maintenance Request', 'Spare Parts Request',
-      'Warehouse Material Request', 'PPE Request', 'Office Supplies Request'
-    ]
-  },
-  it: {
-    labelEn: 'IT Requests',
-    labelAr: 'طلبات الدعم التقني',
-    color: 'indigo',
-    types: [
-      'New User Account', 'Password Reset', 'Access Permission Request', 'Email Account Request',
-      'Software Installation', 'Hardware Support', 'Printer Support', 'Network Support'
+      'Leave Request', 'Emergency Leave', 'Sick Leave', 'Annual Leave', 'Maternity Leave', 'Paternity Leave',
+      'Permission / Exit Request', 'Attendance Adjustment', 'Overtime Request', 'Shift Change Request',
+      'Transfer Request', 'Promotion Request', 'Salary Certificate Request', 'Employment Certificate Request',
+      'Experience Certificate Request', 'HR Letter Request', 'Personal Information Update', 'Bank Account Change',
+      'Emergency Contact Update', 'Passport Renewal Request', 'Iqama Renewal Request', 'Visa Request',
+      'Exit/Re-entry Visa Request', 'Final Exit Request', 'Resignation Request', 'End of Service Request',
+      'Training Request', 'Recruitment Request', 'Performance Appeal'
     ]
   },
   finance: {
-    labelEn: 'Finance Requests',
-    labelAr: 'الطلبات المالية',
-    color: 'rose',
+    labelEn: 'Finance',
+    labelAr: 'المالية',
+    color: 'emerald',
     types: [
-      'Purchase Request', 'Purchase Requisition', 'Petty Cash Request', 'Vendor Payment Request',
-      'Invoice Approval', 'Budget Transfer Request'
+      'Loan Request', 'Salary Advance Request', 'Petty Cash Request', 'Expense Reimbursement',
+      'Business Trip Advance', 'Travel Expense Settlement', 'Medical Claim', 'Insurance Claim',
+      'Purchase Reimbursement'
+    ]
+  },
+  assets: {
+    labelEn: 'Assets & Equipment',
+    labelAr: 'الأصول والمعدات',
+    color: 'orange',
+    types: [
+      'Laptop Request', 'Desktop Computer Request', 'Monitor Request', 'Printer Request',
+      'Mobile Phone Request', 'Tablet Request', 'SIM Card Request', 'Network Access Request',
+      'Email Account Request', 'Software License Request', 'VPN Access', 'ID Card Request',
+      'Office Furniture Request', 'Uniform Request', 'PPE Equipment Request'
+    ]
+  },
+  fleet: {
+    labelEn: 'Vehicle & Fleet',
+    labelAr: 'المركبات والأسطول',
+    color: 'red',
+    types: [
+      'Company Vehicle Request', 'Vehicle Replacement', 'Vehicle Maintenance Request',
+      'Driver Request', 'Fuel Card Request', 'Fuel Allocation Increase', 'Vehicle Accident Report'
+    ]
+  },
+  machinery: {
+    labelEn: 'Equipment & Machinery',
+    labelAr: 'المعدات والآليات',
+    color: 'yellow',
+    types: [
+      'Heavy Equipment Assignment', 'Equipment Transfer', 'Equipment Return',
+      'Equipment Maintenance Request', 'Equipment Breakdown Report', 'Spare Parts Request',
+      'Fuel Request', 'Operator Assignment Request'
+    ]
+  },
+  warehouse: {
+    labelEn: 'Warehouse',
+    labelAr: 'المستودعات والمخازن',
+    color: 'teal',
+    types: [
+      'Material Request', 'Spare Parts Request', 'Warehouse Issue Voucher',
+      'Warehouse Return Voucher', 'Stock Transfer Request'
+    ]
+  },
+  it: {
+    labelEn: 'IT Helpdesk',
+    labelAr: 'الدعم التقني IT',
+    color: 'indigo',
+    types: [
+      'Hardware Support', 'Software Support', 'Password Reset', 'Email Issue',
+      'Network Issue', 'Printer Issue', 'Internet Issue', 'New User Request',
+      'Access Permission Request'
+    ]
+  },
+  admin: {
+    labelEn: 'Administrative Services',
+    labelAr: 'الخدمات الإدارية',
+    color: 'purple',
+    types: [
+      'Meeting Room Reservation', 'Company Accommodation Request', 'Parking Permit Request',
+      'Visitor Pass Request', 'Company Housing Request', 'Office Relocation Request'
     ]
   }
 };
@@ -142,6 +165,12 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
   const [customUsername, setCustomUsername] = useState('');
   const [customSystem, setCustomSystem] = useState('');
 
+  // Associated Project and Attachments Support
+  const [formProject, setFormProject] = useState('NEOM Site Office');
+  const [formAttachments, setFormAttachments] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+
   // Interactive Operations / Approval Modal State
   const [selectedRequest, setSelectedRequest] = useState<EnterpriseRequest | null>(null);
   const [modalAction, setModalAction] = useState<'view' | 'approve' | 'reject' | 'comment' | 'escalate' | 'delegate'>('view');
@@ -179,11 +208,11 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
     
     // Construct Form Data
     const formData: Record<string, any> = {};
-    if (formCategory === 'hr' && (formType.includes('Leave') || formType.includes('Exit'))) {
+    if (formCategory === 'hr') {
       formData.leaveType = customLeaveType;
       formData.startDate = customStartDate;
       formData.endDate = customEndDate;
-    } else if (formCategory === 'payroll' || formCategory === 'finance') {
+    } else if (formCategory === 'finance') {
       formData.amount = Number(customAmount) || 0;
       formData.installments = Number(customInstallments) || 0;
     } else if (formCategory === 'assets') {
@@ -192,6 +221,75 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
     } else if (formCategory === 'it') {
       formData.username = customUsername;
       formData.system = customSystem;
+    } else {
+      formData.assetName = customAssetName || formType;
+      formData.targetDate = customTargetDate;
+    }
+
+    if (editingRequestId) {
+      // Save changes to draft
+      const editPayload = {
+        approverId: selectedEmp.id,
+        approverName: selectedEmp.fullName,
+        role: selectedEmp.position,
+        action: 'edit_draft',
+        priority: formPriority,
+        isFinancial: formIsFinancial || formCategory === 'finance',
+        valueSAR: formValueSAR || Number(customAmount) || 0,
+        details: formDetails,
+        formData,
+        project: formProject,
+        attachments: formAttachments,
+        comment: 'Modified request specifications.'
+      };
+
+      try {
+        let res = await fetch(`/api/requests/${editingRequestId}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editPayload)
+        });
+
+        if (res.ok) {
+          if (!isDraft) {
+            // Re-submit the draft request for approval
+            const submitPayload = {
+              approverId: selectedEmp.id,
+              approverName: selectedEmp.fullName,
+              role: selectedEmp.position,
+              action: 'submit_draft',
+              comment: 'Resubmitted modified draft request for approval.'
+            };
+            res = await fetch(`/api/requests/${editingRequestId}/action`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(submitPayload)
+            });
+          }
+
+          if (res.ok) {
+            if (onAddNotification) {
+              onAddNotification(
+                isDraft ? 'Draft Saved Successfully' : 'Request Submitted',
+                `Your ${formType} request has been successfully updated.`,
+                'success',
+                'Requests'
+              );
+            }
+            setIsCreateOpen(false);
+            resetForm();
+            fetchRequests();
+          } else {
+            alert('Failed to submit updated request.');
+          }
+        } else {
+          alert('Failed to save request modifications.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Server connection error.');
+      }
+      return;
     }
 
     const bodyPayload = {
@@ -199,14 +297,16 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
       employeeName: selectedEmp.fullName,
       department: selectedEmp.department,
       branch: selectedEmp.projectAssignment === 'HQ' ? 'Riyadh (HQ)' : 'Remote Project Site',
+      project: formProject,
       jobTitle: selectedEmp.position,
       category: REQUEST_CATEGORIES[formCategory].labelEn,
       requestType: formType,
       priority: formPriority,
-      isFinancial: formIsFinancial || formCategory === 'finance' || formCategory === 'payroll',
+      isFinancial: formIsFinancial || formCategory === 'finance',
       valueSAR: formValueSAR || Number(customAmount) || 0,
       details: formDetails,
       formData,
+      attachments: formAttachments,
       status: isDraft ? 'Draft' : 'Pending Approval'
     };
 
@@ -298,6 +398,9 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
     setCustomTargetDate('');
     setCustomUsername('');
     setCustomSystem('');
+    setFormProject('NEOM Site Office');
+    setFormAttachments([]);
+    setEditingRequestId(null);
   };
 
   // Role Perspective Filters
@@ -1041,6 +1144,25 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                 </div>
               </div>
 
+              {/* Project Assignment */}
+              <div className="space-y-1">
+                <label className="font-bold text-gray-700 block">{isRtl ? 'الربط بالموقع / المشروع:' : 'Associated Project Site:'}</label>
+                <select
+                  value={formProject}
+                  onChange={(e) => setFormProject(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800"
+                >
+                  <option value="HQ Office (Riyadh)">HQ Office (Riyadh)</option>
+                  <option value="NEOM Site Office">NEOM Site Office</option>
+                  <option value="Amala Luxury Resort Site">Amala Luxury Resort Site</option>
+                  <option value="Red Sea Global Infrastructure">Red Sea Global Infrastructure</option>
+                  <option value="Qiddiya Entertainment District">Qiddiya Entertainment District</option>
+                  <option value="Jeddah Central Dev Project">Jeddah Central Dev Project</option>
+                  <option value="Riyadh Metro Extension">Riyadh Metro Extension</option>
+                  <option value="Dammam Port Facility">Dammam Port Facility</option>
+                </select>
+              </div>
+
               {/* DYNAMIC FORM SEGMENTS */}
               <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100 space-y-3">
                 <span className="text-[10px] font-black uppercase text-blue-700 block tracking-wider">
@@ -1181,6 +1303,61 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs"
                   />
                 </div>
+
+                {/* Simulated Document / Photo Attachment Uploader */}
+                <div className="space-y-2 border-t pt-2 border-dashed border-gray-200">
+                  <label className="font-black text-gray-700 block uppercase tracking-wide text-[10px] flex items-center gap-1.5">
+                    📎 {isRtl ? 'المرفقات والوثائق الثبوتية:' : 'Corporate Attachments & Proof Docs:'}
+                  </label>
+                  <div className="p-3 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-center space-y-2">
+                    <p className="text-[10px] text-gray-500">
+                      {isRtl ? 'اسحب وأفلت الملفات هنا، أو انقر للاختيار (PDF, PNG, JPG, DOCX)' : 'Drag & drop official files here, or click to attach (PDF, PNG, JPG)'}
+                    </p>
+                    <div className="flex justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUploading(true);
+                          setTimeout(() => {
+                            const mockFiles = [
+                              'id_verification_card.pdf',
+                              'medical_report_official.pdf',
+                              'expense_invoice_receipt.png',
+                              'equipment_maintenance_spec.pdf',
+                              'leave_plan_calendar.docx'
+                            ];
+                            const randomFile = mockFiles[Math.floor(Math.random() * mockFiles.length)];
+                            if (!formAttachments.includes(randomFile)) {
+                              setFormAttachments(prev => [...prev, randomFile]);
+                            }
+                            setIsUploading(false);
+                          }, 800);
+                        }}
+                        disabled={isUploading}
+                        className="bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 font-bold px-2.5 py-1 rounded text-[10px] flex items-center gap-1 cursor-pointer"
+                      >
+                        {isUploading ? 'Uploading...' : '📁 Attach Simulated File'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {formAttachments.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 bg-white p-2 rounded-lg border border-gray-150">
+                      {formAttachments.map((f, i) => (
+                        <div key={i} className="flex items-center gap-1 bg-gray-50 text-gray-700 px-2 py-0.5 rounded-md border font-mono text-[9px]">
+                          <span>{f}</span>
+                          <button
+                            type="button"
+                            onClick={() => setFormAttachments(prev => prev.filter(x => x !== f))}
+                            className="text-red-500 font-black hover:bg-gray-200 rounded p-0.5"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1253,6 +1430,12 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                     <span className="text-gray-500 font-medium block">{isRtl ? 'القسم والإدارة:' : 'Department/Division:'}</span>
                     <span className="font-bold text-gray-800">{selectedRequest.department}</span>
                   </div>
+                  {selectedRequest.project && (
+                    <div>
+                      <span className="text-gray-500 font-medium block">{isRtl ? 'المشروع المرتبط:' : 'Associated Project:'}</span>
+                      <span className="font-bold text-gray-800 text-blue-700">{selectedRequest.project}</span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-gray-500 font-medium block">{isRtl ? 'تاريخ تقديم الطلب:' : 'Date Registered:'}</span>
                     <span className="font-bold text-gray-800 font-mono">{selectedRequest.requestDate}</span>
@@ -1292,6 +1475,26 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                       "{selectedRequest.details || 'No additional justification comment recorded.'}"
                     </p>
                   </div>
+                  {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
+                    <div className="border-t pt-2 mt-2">
+                      <span className="text-gray-500 font-bold block mb-1">📎 {isRtl ? 'الوثائق والمستندات المرفقة:' : 'Attached Corporate Docs:'}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedRequest.attachments.map((file, idx) => (
+                          <a
+                            key={idx}
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              alert(`Simulating downloading/previewing: ${file}`);
+                            }}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded border border-blue-100 font-mono text-[9px] flex items-center gap-1 transition-all"
+                          >
+                            <span>📥 {file}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1305,6 +1508,26 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                     <div key={key} className="bg-white p-1.5 rounded border border-blue-50">
                       <span className="text-gray-500 block capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span>
                       <span className="font-bold text-gray-800">{String(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Discussion Thread */}
+            {selectedRequest.comments && selectedRequest.comments.length > 0 && (
+              <div className="space-y-2 bg-gray-50/80 p-4 rounded-xl border border-gray-150 text-xs">
+                <span className="text-[10px] font-black uppercase text-gray-500 block tracking-wider">
+                  💬 {isRtl ? 'سجل الملاحظات والمناقشات الداخلية للموظفين والمدراء:' : 'Internal Discussions & Collaboration Log:'}
+                </span>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {selectedRequest.comments.map((comment, index) => (
+                    <div key={index} className="bg-white p-2 rounded-lg border border-gray-100 space-y-1">
+                      <div className="flex justify-between items-center text-[10px] font-mono text-gray-400">
+                        <span className="font-bold text-blue-700">{comment.authorName} ({comment.role})</span>
+                        <span>{new Date(comment.date).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-gray-700 leading-relaxed font-mono text-[11px]">{comment.text}</p>
                     </div>
                   ))}
                 </div>
@@ -1350,6 +1573,65 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                 </div>
               )}
             </div>
+
+            {/* Employee Request Owner Console */}
+            {(selectedRequest.employeeId === selectedEmployeeId || activeRolePerspective === 'employee') && (
+              <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200 space-y-3">
+                <span className="text-[10px] font-black uppercase text-gray-500 block tracking-wider">
+                  👤 {isRtl ? 'إجراءات صاحب الطلب (Employee self-service)' : 'Employee ESS Request Owner Console'}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {(selectedRequest.status === 'Draft' || selectedRequest.status === 'Returned for Correction') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingRequestId(selectedRequest.id);
+                        const matchedCatEntry = Object.entries(REQUEST_CATEGORIES).find(([_, cat]) => cat.labelEn === selectedRequest.category);
+                        const catKey = matchedCatEntry ? (matchedCatEntry[0] as keyof typeof REQUEST_CATEGORIES) : 'hr';
+                        setFormCategory(catKey);
+                        setFormType(selectedRequest.requestType);
+                        setFormEmployeeId(selectedRequest.employeeId);
+                        setFormPriority(selectedRequest.priority);
+                        setFormIsFinancial(selectedRequest.isFinancial);
+                        setFormValueSAR(selectedRequest.valueSAR);
+                        setFormDetails(selectedRequest.details);
+                        setFormProject(selectedRequest.project || 'NEOM Site Office');
+                        setFormAttachments(selectedRequest.attachments || []);
+                        if (selectedRequest.formData) {
+                          setCustomLeaveType(selectedRequest.formData.leaveType || 'Annual Leave');
+                          setCustomStartDate(selectedRequest.formData.startDate || '');
+                          setCustomEndDate(selectedRequest.formData.endDate || '');
+                          setCustomAmount(selectedRequest.formData.amount || '');
+                          setCustomInstallments(selectedRequest.formData.installments || '');
+                          setCustomAssetName(selectedRequest.formData.assetName || '');
+                          setCustomTargetDate(selectedRequest.formData.targetDate || '');
+                          setCustomUsername(selectedRequest.formData.username || '');
+                          setCustomSystem(selectedRequest.formData.system || '');
+                        }
+                        setIsCreateOpen(true);
+                        setSelectedRequest(null);
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                    >
+                      ✏ {isRtl ? 'تعديل المعاملة / إعادة التقديم' : 'Edit Request / Re-submit'}
+                    </button>
+                  )}
+                  {selectedRequest.status === 'Pending Approval' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(isRtl ? 'هل أنت متأكد من إلغاء هذا الطلب نهائياً؟' : 'Are you sure you want to cancel this request?')) {
+                          handleWorkflowAction(selectedRequest.id, 'cancel');
+                        }
+                      }}
+                      className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold px-3 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      🗙 {isRtl ? 'إلغاء الطلب وسحبه' : 'Cancel Request'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Workflow Control Operations Center */}
             {selectedRequest.status === 'Pending Approval' && (
@@ -1485,6 +1767,19 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                 </div>
 
                 <div className="flex justify-end gap-2 border-t border-blue-100 pt-2.5">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!commentText.trim()) {
+                        alert(isRtl ? 'الرجاء كتابة تعليق أولاً.' : 'Please enter a comment text first.');
+                        return;
+                      }
+                      await handleWorkflowAction(selectedRequest.id, 'add_comment');
+                    }}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 border font-bold px-3 py-2 rounded-xl text-xs cursor-pointer"
+                  >
+                    💬 {isRtl ? 'إضافة تعليق داخلي فقط' : 'Add Comment Only'}
+                  </button>
                   <button
                     onClick={() => handleWorkflowAction(selectedRequest.id, modalAction)}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer shadow-xs"

@@ -384,6 +384,7 @@ app.post('/api/requests', (req, res) => {
     employeeName,
     department,
     branch,
+    project,
     jobTitle,
     category,
     requestType,
@@ -392,10 +393,12 @@ app.post('/api/requests', (req, res) => {
     valueSAR,
     details,
     formData,
+    attachments = [],
     status = 'Pending Approval'
   } = req.body;
 
   const reqId = `REQ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const dateStr = new Date().toISOString().split('T')[0];
 
   const newRequest = {
     id: reqId,
@@ -403,10 +406,11 @@ app.post('/api/requests', (req, res) => {
     employeeName,
     department,
     branch,
+    project: project || branch || 'HQ',
     jobTitle,
     category,
     requestType,
-    requestDate: new Date().toISOString().split('T')[0],
+    requestDate: dateStr,
     status, // 'Draft', 'Submitted', 'Pending Approval'
     priority: priority || 'Medium',
     currentLevel: status === 'Draft' ? 0 : 1,
@@ -417,19 +421,29 @@ app.post('/api/requests', (req, res) => {
     details: details || '',
     slaLimitHours: priority === 'Critical' ? 24 : priority === 'High' ? 48 : 72,
     pendingDays: 0,
-    submissionDate: new Date().toISOString().split('T')[0],
-    lastActionDate: new Date().toISOString().split('T')[0],
+    submissionDate: dateStr,
+    lastActionDate: dateStr,
     history: status === 'Draft' ? ([] as ApprovalHistoryItem[]) : [
       {
         level: 0,
         levelName: 'Employee Submission',
         approverName: employeeName,
         action: 'Submitted' as const,
-        date: new Date().toISOString().split('T')[0],
+        date: dateStr,
         comment: 'Request submitted for corporate approval.'
       }
     ],
-    formData: formData || {}
+    formData: formData || {},
+    attachments: attachments || [],
+    comments: [] as { authorName: string; role: string; text: string; date: string }[],
+    auditLogs: [
+      {
+        timestamp: new Date().toISOString(),
+        action: 'Created',
+        performedBy: employeeName,
+        details: status === 'Draft' ? 'Created request draft' : `Submitted request ${reqId} for approval.`
+      }
+    ]
   };
 
   db.update((data) => {
@@ -469,6 +483,10 @@ app.post('/api/requests/:id/action', (req, res) => {
   db.update((data) => {
     const request = (data.requests || []).find((r) => r.id === id);
     if (!request) return;
+
+    if (!request.comments) request.comments = [];
+    if (!request.auditLogs) request.auditLogs = [];
+    if (!request.attachments) request.attachments = [];
 
     const dateStr = new Date().toISOString().split('T')[0];
     request.lastActionDate = dateStr;
@@ -589,7 +607,44 @@ app.post('/api/requests/:id/action', (req, res) => {
         comment: 'Draft request submitted for corporate approval.',
         signature
       });
+    } else if (action === 'cancel') {
+      request.status = 'Cancelled';
+      request.currentLevelName = 'Cancelled';
+      request.currentApprover = 'Completed';
+      request.history.push({
+        level: request.currentLevel,
+        levelName: 'Employee Cancel',
+        approverName,
+        action: 'Cancelled' as any,
+        date: dateStr,
+        comment: comment || 'Request cancelled by the requesting employee.',
+        signature
+      });
+    } else if (action === 'add_comment') {
+      request.comments.push({
+        authorName: approverName,
+        role: role || 'Reviewer',
+        text: comment || '',
+        date: new Date().toISOString()
+      });
+    } else if (action === 'edit_draft') {
+      const { priority: editPriority, isFinancial: editIsFinancial, valueSAR: editValueSAR, details: editDetails, formData: editFormData, attachments: editAttachments, project: editProject } = req.body;
+      request.priority = editPriority || request.priority;
+      request.isFinancial = editIsFinancial !== undefined ? !!editIsFinancial : request.isFinancial;
+      request.valueSAR = editValueSAR !== undefined ? Number(editValueSAR) : request.valueSAR;
+      request.details = editDetails || request.details;
+      request.formData = editFormData || request.formData;
+      if (editProject) request.project = editProject;
+      if (editAttachments) request.attachments = editAttachments;
     }
+
+    // Append to audit logs
+    request.auditLogs.push({
+      timestamp: new Date().toISOString(),
+      action: action.toUpperCase(),
+      performedBy: approverName,
+      details: comment || `Action [${action}] executed successfully.`
+    });
 
     updatedRequest = request;
   });

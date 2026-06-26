@@ -351,8 +351,9 @@ export interface EnterpriseRequest {
   employeeName: string;
   department: string;
   branch: string;
+  project?: string; // Associated Project site (e.g. NEOM, HQ)
   jobTitle: string;
-  category: 'HR' | 'Payroll' | 'Administrative' | 'Assets & Equipment' | 'IT' | 'Finance';
+  category: string; // HR, Finance, Assets, Fleet, Machinery, Warehouse, IT, Admin
   requestType: string;
   requestDate: string;
   status: 'Draft' | 'Submitted' | 'Pending Approval' | 'Approved' | 'Rejected' | 'Returned for Correction' | 'Cancelled' | 'Completed';
@@ -369,6 +370,9 @@ export interface EnterpriseRequest {
   lastActionDate: string;
   history: ApprovalHistoryItem[];
   formData: Record<string, any>;
+  attachments?: string[]; // Uploaded attachments names/urls
+  comments?: { authorName: string; role: string; text: string; date: string }[]; // Internal review notes
+  auditLogs?: { timestamp: string; action: string; performedBy: string; details: string }[]; // Audit trail logs
 }
 
 export type EmailProvider = 'm365' | 'gmail' | 'sendgrid' | 'ses' | 'mailgun' | 'brevo' | 'smtp';
