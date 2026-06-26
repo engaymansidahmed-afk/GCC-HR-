@@ -16,7 +16,17 @@ import {
   Notification, 
   SystemSettings, 
   Warehouse,
-  PayrollRun 
+  PayrollRun,
+  EnterpriseRequest,
+  EmailConfig,
+  SmsConfig,
+  MfaConfig,
+  EmailTemplate,
+  EmailLog,
+  SmsLog,
+  QueueItem,
+  AccountSecurityPolicy,
+  UserSecurityState
 } from './types';
 
 export interface DatabaseSchema {
@@ -38,6 +48,16 @@ export interface DatabaseSchema {
   notifications: Notification[];
   settings: SystemSettings;
   payrollRuns: PayrollRun[];
+  requests: EnterpriseRequest[];
+  emailConfig: EmailConfig;
+  smsConfig: SmsConfig;
+  mfaConfig: MfaConfig;
+  emailTemplates: EmailTemplate[];
+  emailLogs: EmailLog[];
+  smsLogs: SmsLog[];
+  emailQueue: QueueItem[];
+  securityPolicy: AccountSecurityPolicy;
+  userSecurityStates: UserSecurityState[];
 }
 
 export const FALLBACK_SETTINGS: SystemSettings = {
@@ -622,5 +642,52 @@ export const FALLBACK_STATE: DatabaseSchema = {
   ],
   notifications: FALLBACK_NOTIFICATIONS,
   settings: FALLBACK_SETTINGS,
-  payrollRuns: FALLBACK_PAYROLL_RUNS
+  payrollRuns: FALLBACK_PAYROLL_RUNS,
+  requests: [],
+  emailConfig: {
+    provider: 'm365',
+    smtpHost: 'smtp.office365.com',
+    smtpPort: 587,
+    smtpUser: 'hr-alerts@almansoori.com',
+    smtpPassEncrypted: '******',
+    secureMode: 'STARTTLS',
+    senderEmail: 'hr-alerts@almansoori.com',
+    senderName: 'Al-Mansoori HR Portal',
+    replyTo: 'hr-helpdesk@almansoori.com',
+    timeoutMs: 5000,
+    maxRetries: 3,
+    dailyLimit: 10000,
+    enabled: true
+  },
+  smsConfig: {
+    provider: 'taqny',
+    apiKeyEncrypted: '******',
+    secretEncrypted: '******',
+    senderId: 'ALMANSOORI',
+    dailyLimit: 2000,
+    enabled: true
+  },
+  mfaConfig: {
+    globalEnabled: false,
+    enabledRoles: ['Super Administrator', 'HR Manager'],
+    methods: ['email_otp', 'authenticator']
+  },
+  emailTemplates: [],
+  emailLogs: [],
+  smsLogs: [],
+  emailQueue: [],
+  securityPolicy: {
+    passwordLength: 8,
+    complexityNumbers: true,
+    complexitySpecial: true,
+    complexityUppercase: true,
+    passwordExpirationDays: 90,
+    passwordHistoryLimit: 5,
+    maxLoginAttempts: 5,
+    lockoutDurationMinutes: 15,
+    sessionTimeoutMinutes: 30,
+    forcedPasswordChangeOnCreate: true,
+    inactiveAccountDisableDays: 180
+  },
+  userSecurityStates: []
 };

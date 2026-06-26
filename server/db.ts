@@ -21,7 +21,16 @@ import {
   Warehouse,
   PayrollRun,
   EnterpriseRequest,
-  ApprovalHistoryItem
+  ApprovalHistoryItem,
+  EmailConfig,
+  SmsConfig,
+  MfaConfig,
+  EmailTemplate,
+  EmailLog,
+  SmsLog,
+  QueueItem,
+  AccountSecurityPolicy,
+  UserSecurityState
 } from '../src/types';
 
 interface DatabaseSchema {
@@ -44,6 +53,15 @@ interface DatabaseSchema {
   settings: SystemSettings;
   payrollRuns: PayrollRun[];
   requests: EnterpriseRequest[];
+  emailConfig: EmailConfig;
+  smsConfig: SmsConfig;
+  mfaConfig: MfaConfig;
+  emailTemplates: EmailTemplate[];
+  emailLogs: EmailLog[];
+  smsLogs: SmsLog[];
+  emailQueue: QueueItem[];
+  securityPolicy: AccountSecurityPolicy;
+  userSecurityStates: UserSecurityState[];
 }
 
 const DB_FILE = path.join(process.cwd(), 'db.json');
@@ -709,6 +727,184 @@ const seedNotifications: Notification[] = [
   { id: 'NTF-003', title: 'Spare Part Reorder Level Met', message: 'Cummins Alternator Ribbed Fan Belt (SP-CUM-BELT02) has fallen below reorder level (Stock: 2/5).', type: 'warning', module: 'Inventory', isRead: false, createdAt: '2026-06-25T04:30:00Z' }
 ];
 
+const defaultEmailConfig: EmailConfig = {
+  provider: 'm365',
+  smtpHost: 'smtp.office365.com',
+  smtpPort: 587,
+  smtpUser: 'hr-alerts@almansoori.com',
+  smtpPassEncrypted: 'Microsoft365EnterpriseSecureKeyPass101!',
+  secureMode: 'STARTTLS',
+  senderEmail: 'hr-alerts@almansoori.com',
+  senderName: 'Al-Mansoori HR Portal',
+  replyTo: 'hr-helpdesk@almansoori.com',
+  timeoutMs: 5000,
+  maxRetries: 3,
+  dailyLimit: 10000,
+  enabled: true
+};
+
+const defaultSmsConfig: SmsConfig = {
+  provider: 'taqny',
+  apiKeyEncrypted: 'TaqnyAPISecurityToken99238128371',
+  secretEncrypted: 'TaqnySecretValue882319238',
+  senderId: 'ALMANSOORI',
+  dailyLimit: 2000,
+  enabled: true
+};
+
+const defaultMfaConfig: MfaConfig = {
+  globalEnabled: false,
+  enabledRoles: ['Super Administrator', 'HR Manager', 'Finance Manager'],
+  methods: ['email_otp', 'authenticator']
+};
+
+const defaultSecurityPolicy: AccountSecurityPolicy = {
+  passwordLength: 8,
+  complexityNumbers: true,
+  complexitySpecial: true,
+  complexityUppercase: true,
+  passwordExpirationDays: 90,
+  passwordHistoryLimit: 5,
+  maxLoginAttempts: 5,
+  lockoutDurationMinutes: 15,
+  sessionTimeoutMinutes: 30,
+  forcedPasswordChangeOnCreate: true,
+  inactiveAccountDisableDays: 180
+};
+
+const defaultEmailTemplates: EmailTemplate[] = [
+  {
+    id: 'welcome_email',
+    name: 'New Employee Onboarding Welcome',
+    subject: 'Welcome to Al-Mansoori - Set Up Your HR Portal Account',
+    subjectAr: 'مرحباً بك في شركة المنصوري - تفعيل حسابك في بوابة الموارد البشرية',
+    body: 'Dear {{EmployeeName}},\n\nWelcome to Al-Mansoori! We are thrilled to have you join our team as {{Position}} in the {{Department}} department.\n\nYour HR Portal employee account has been created. Here are your temporary credentials:\n- Username: {{Username}}\n- Temporary Password: {{TemporaryPassword}}\n- Employee ID: {{EmployeeID}}\n\nPlease activate your account by clicking the link below and setting up your permanent secure password:\n{{ResetLink}}\n\nNote: You will be required to change this temporary password upon your first login.\n\nBest regards,\n{{CompanyName}} HR Department',
+    bodyAr: 'عزيزي الموظف {{EmployeeName}}،\n\nمرحباً بك في شركة المنصوري! يسعدنا جداً انضمامك إلى فريقنا كـ {{Position}} في إدارة {{Department}}.\n\nتم إنشاء حسابك في بوابة الموارد البشرية. إليك بيانات تسجيل الدخول المؤقتة:\n- اسم المستخدم: {{Username}}\n- كلمة المرور المؤقتة: {{TemporaryPassword}}\n- الرقم الوظيفي: {{EmployeeID}}\n\nيرجى تفعيل حسابك بالضغط على الرابط أدناه وتعيين كلمة المرور الدائمة الخاصة بك:\n{{ResetLink}}\n\nملاحظة: سيُطلب منك إلزامياً تغيير كلمة المرور المؤقتة عند تسجيل الدخول الأول.\n\nمع أطيب التحيات،\nإدارة الموارد البشرية - {{CompanyName}}',
+    language: 'both',
+    variables: ['EmployeeName', 'Position', 'Department', 'Username', 'TemporaryPassword', 'EmployeeID', 'ResetLink', 'CompanyName'],
+    enabled: true
+  },
+  {
+    id: 'password_reset',
+    name: 'Password Recovery Link',
+    subject: 'Reset your Al-Mansoori HR Portal Password',
+    subjectAr: 'إعادة تعيين كلمة المرور - بوابة الموارد البشرية لشركة المنصوري',
+    body: 'Dear {{EmployeeName}},\n\nWe received a request to reset the password for your HR Portal account. Use the link below to set a new password:\n{{ResetLink}}\n\nThis recovery link is temporary and will expire in 30 minutes. If you did not request a password reset, please ignore this email or contact the HR IT Security team immediately.\n\nBest regards,\n{{CompanyName}} Security Team',
+    bodyAr: 'عزيزي {{EmployeeName}}،\n\nتلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك في بوابة الموارد البشرية. يرجى استخدام الرابط أدناه لتعيين كلمة مرور جديدة:\n{{ResetLink}}\n\nرابط الاستعادة هذا مؤقت وصالح لمدة 30 دقيقة فقط. إذا لم تكن قد طلبت إعادة تعيين كلمة المرور، يرجى تجاهل هذا البريد أو الاتصال بفريق أمن المعلومات فوراً.\n\nمع التحية،\nفريق الأمان - {{CompanyName}}',
+    language: 'both',
+    variables: ['EmployeeName', 'ResetLink', 'CompanyName'],
+    enabled: true
+  },
+  {
+    id: 'otp_notification',
+    name: 'Multi-Factor OTP Verification',
+    subject: 'Verification Code (MFA) - GCC HR Portal',
+    subjectAr: 'رمز التحقق الثنائي (MFA) - بوابة الموارد البشرية',
+    body: 'Dear {{EmployeeName}},\n\nYour temporary Multi-Factor Authentication (MFA) security code is:\n\n{{OTPCode}}\n\nThis code is confidential and is valid for 5 minutes. Never share this code with anyone, including HR support staff.\n\nBest regards,\n{{CompanyName}} Identity Protection',
+    bodyAr: 'عزيزي {{EmployeeName}}،\n\nرمز التحقق الثنائي المؤقت الخاص بك هو:\n\n{{OTPCode}}\n\nهذا الرمز سري وصالح لمدة 5 دقائق فقط. لا تقم بمشاركة هذا الرمز مع أي شخص، بما في ذلك موظفي الدعم الفني.\n\nمع التحية،\nحماية الهوية - {{CompanyName}}',
+    language: 'both',
+    variables: ['EmployeeName', 'OTPCode', 'CompanyName'],
+    enabled: true
+  },
+  {
+    id: 'leave_approval',
+    name: 'Leave Request Status Update',
+    subject: 'Leave Request Approved - {{LeaveType}}',
+    subjectAr: 'الموافقة على طلب الإجازة - {{LeaveType}}',
+    body: 'Dear {{EmployeeName}},\n\nYour leave request for {{LeaveType}} starting on {{StartDate}} and ending on {{EndDate}} has been officially approved. All downstream workflow logs have been locked.\n\nThank you,\n{{CompanyName}} HR',
+    bodyAr: 'عزيزي {{EmployeeName}}،\n\nتمت الموافقة رسمياً على طلب الإجازة الخاص بك ({{LeaveType}}) للفترة من {{StartDate}} إلى {{EndDate}}. تم حفظ واعتماد سجلات الموافقة.\n\nشكراً لك،\nإدارة الموارد البشرية - {{CompanyName}}',
+    language: 'both',
+    variables: ['EmployeeName', 'LeaveType', 'StartDate', 'EndDate', 'CompanyName'],
+    enabled: true
+  }
+];
+
+const defaultEmailLogs: EmailLog[] = [
+  {
+    id: 'ELG-001',
+    date: '2026-06-26',
+    time: '10:15:30',
+    recipient: 'tariq.otaibi@almansoori.com',
+    sender: 'hr-alerts@almansoori.com',
+    subject: 'Welcome to Al-Mansoori - Set Up Your HR Portal Account',
+    templateUsed: 'welcome_email',
+    status: 'Sent',
+    retryCount: 0,
+    smtpResponse: '250 2.0.0 OK 1719401730 q18-v839420857as',
+    durationMs: 420
+  },
+  {
+    id: 'ELG-002',
+    date: '2026-06-26',
+    time: '11:30:12',
+    recipient: 'sarah.ghamdi@almansoori.com',
+    sender: 'hr-alerts@almansoori.com',
+    subject: 'Reset your Al-Mansoori HR Portal Password',
+    templateUsed: 'password_reset',
+    status: 'Sent',
+    retryCount: 1,
+    smtpResponse: '250 2.0.0 OK Delivery Complete',
+    durationMs: 980
+  },
+  {
+    id: 'ELG-003',
+    date: '2026-06-26',
+    time: '12:05:44',
+    recipient: 'mohammad.qahtani@almansoori.com',
+    sender: 'hr-alerts@almansoori.com',
+    subject: 'Verification Code (MFA) - GCC HR Portal',
+    templateUsed: 'otp_notification',
+    status: 'Failed',
+    failureReason: 'Connection timed out after 5000ms',
+    retryCount: 3,
+    smtpResponse: '421 4.4.2 Connection lost or SMTP host busy',
+    durationMs: 5040
+  }
+];
+
+const defaultSmsLogs: SmsLog[] = [
+  {
+    id: 'SLG-001',
+    recipient: '+966 50 123 4567',
+    message: 'GCC-HR: Your OTP security verification code is 482931. Valid for 5 mins.',
+    provider: 'taqny',
+    status: 'Delivered',
+    retryCount: 0,
+    costSAR: 0.15,
+    date: '2026-06-26',
+    time: '10:16:05'
+  },
+  {
+    id: 'SLG-002',
+    recipient: '+966 54 888 2314',
+    message: 'Al-Mansoori: Welcome! Your temporary secure password is: PM@98342_H. First login reset required.',
+    provider: 'taqny',
+    status: 'Delivered',
+    retryCount: 0,
+    costSAR: 0.15,
+    date: '2026-06-26',
+    time: '11:02:11'
+  }
+];
+
+const generateUserSecurityStates = (employees: Employee[]): UserSecurityState[] => {
+  return employees.map((emp) => {
+    const username = emp.email ? emp.email.split('@')[0] : emp.id.toLowerCase();
+    return {
+      employeeId: emp.id,
+      username: username,
+      hashedPassword: `pbkdf2_sha256$260000$${username}_salt$hashedpasswordemulated101`, // Standard simulation hash prefix
+      tempPassword: `${username.toUpperCase()}@2026_!`,
+      firstLoginResetRequired: emp.id !== 'EMP-2026-001' && emp.id !== 'EMP-2026-002', // Admin & HR already configured
+      isLocked: false,
+      loginAttempts: 0,
+      mfaEnabled: emp.id === 'EMP-2026-001' || emp.id === 'EMP-2026-002',
+      status: 'Active',
+      passwordSetDate: new Date().toISOString().split('T')[0]
+    };
+  });
+};
+
 export class Database {
   private data: DatabaseSchema;
 
@@ -721,13 +917,60 @@ export class Database {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
+        
+        let needsSave = false;
+        
         if (!parsed.payrollRuns) {
           parsed.payrollRuns = [];
+          needsSave = true;
         }
         if (!parsed.requests) {
           parsed.requests = seedRequests;
+          needsSave = true;
+        }
+        
+        // Dynamic additions for Communication Module
+        if (!parsed.emailConfig) {
+          parsed.emailConfig = defaultEmailConfig;
+          needsSave = true;
+        }
+        if (!parsed.smsConfig) {
+          parsed.smsConfig = defaultSmsConfig;
+          needsSave = true;
+        }
+        if (!parsed.mfaConfig) {
+          parsed.mfaConfig = defaultMfaConfig;
+          needsSave = true;
+        }
+        if (!parsed.emailTemplates) {
+          parsed.emailTemplates = defaultEmailTemplates;
+          needsSave = true;
+        }
+        if (!parsed.emailLogs) {
+          parsed.emailLogs = defaultEmailLogs;
+          needsSave = true;
+        }
+        if (!parsed.smsLogs) {
+          parsed.smsLogs = defaultSmsLogs;
+          needsSave = true;
+        }
+        if (!parsed.emailQueue) {
+          parsed.emailQueue = [];
+          needsSave = true;
+        }
+        if (!parsed.securityPolicy) {
+          parsed.securityPolicy = defaultSecurityPolicy;
+          needsSave = true;
+        }
+        if (!parsed.userSecurityStates) {
+          parsed.userSecurityStates = generateUserSecurityStates(parsed.employees || seedEmployees);
+          needsSave = true;
+        }
+        
+        if (needsSave) {
           fs.writeFileSync(DB_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
         }
+        
         return parsed;
       }
     } catch (e) {
@@ -889,7 +1132,16 @@ export class Database {
       notifications: seedNotifications,
       settings: defaultSettings,
       payrollRuns: seedPayrollRuns,
-      requests: seedRequests
+      requests: seedRequests,
+      emailConfig: defaultEmailConfig,
+      smsConfig: defaultSmsConfig,
+      mfaConfig: defaultMfaConfig,
+      emailTemplates: defaultEmailTemplates,
+      emailLogs: defaultEmailLogs,
+      smsLogs: defaultSmsLogs,
+      emailQueue: [],
+      securityPolicy: defaultSecurityPolicy,
+      userSecurityStates: generateUserSecurityStates(seedEmployees)
     };
 
     this.saveData(seedData);

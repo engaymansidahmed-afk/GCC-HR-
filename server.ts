@@ -144,6 +144,55 @@ app.post('/api/employees', (req, res) => {
 
   db.update((data) => {
     data.employees.push(newEmployee);
+    
+    // Create corresponding security account state
+    const username = email.split('@')[0];
+    const userSecurityState = {
+      employeeId: id,
+      username: username,
+      hashedPassword: `pbkdf2_sha256$260000$${username}_salt$hashedpasswordemulated101`,
+      tempPassword: tempPassword,
+      firstLoginResetRequired: true,
+      isLocked: false,
+      loginAttempts: 0,
+      mfaEnabled: false,
+      status: 'Active' as const,
+      passwordSetDate: new Date().toISOString().split('T')[0]
+    };
+    
+    if (!data.userSecurityStates) {
+      data.userSecurityStates = [];
+    }
+    data.userSecurityStates.push(userSecurityState);
+    
+    // Add Welcome Onboarding Email to async communication queue
+    const welcomeQueueItem = {
+      id: `QUE-${Date.now()}`,
+      type: 'email' as const,
+      recipient: email,
+      subject: `Welcome to Al-Mansoori - Set Up Your HR Portal Account`,
+      message: `Dear ${fullName},\n\nWelcome to Al-Mansoori! We are thrilled to have you join our team as ${position} in the ${department} department.\n\nYour HR Portal employee account has been created. Here are your temporary credentials:\n- Username: ${username}\n- Temporary Password: ${tempPassword}\n- Employee ID: ${id}\n\nPlease activate your account and change your temporary password upon your first login.\n\nBest regards,\nAl-Mansoori HR Department`,
+      templateId: 'welcome_email',
+      payload: {
+        EmployeeName: fullName,
+        Position: position,
+        Department: department,
+        Username: username,
+        TemporaryPassword: tempPassword,
+        EmployeeID: id,
+        ResetLink: `https://hr.almansoori.com/activate?token=ACTIVATE_${Date.now()}`,
+        CompanyName: 'Al-Mansoori Industrial & Engineering Contracting Co.'
+      },
+      status: 'Pending' as const,
+      retries: 0,
+      maxRetries: 3,
+      createdAt: new Date().toISOString()
+    };
+    
+    if (!data.emailQueue) {
+      data.emailQueue = [];
+    }
+    data.emailQueue.push(welcomeQueueItem);
   });
 
   db.logActivity(
@@ -1446,6 +1495,454 @@ Instructions:
     console.error('Gemini API Error:', err);
     res.status(500).json({ error: `AI Assistant failed: ${err.message}` });
   }
+});
+
+
+// ==========================================
+// ENTERPRISE COMMUNICATION PLATFORM APIs
+// ==========================================
+
+// GET current configuration values
+app.get('/api/communication/config', (req, res) => {
+  const state = db.get();
+  res.json({
+    emailConfig: state.emailConfig,
+    smsConfig: state.smsConfig,
+    mfaConfig: state.mfaConfig,
+    securityPolicy: state.securityPolicy
+  });
+});
+
+// Update SMTP configuration
+app.post('/api/communication/email-config', (req, res) => {
+  const newConfig = req.body;
+  db.update((data) => {
+    data.emailConfig = { ...data.emailConfig, ...newConfig };
+  });
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Config Change', 'Communication', 'Updated SMTP email server configurations.'
+  );
+  res.json({ emailConfig: db.get().emailConfig });
+});
+
+// Update SMS gateway configuration
+app.post('/api/communication/sms-config', (req, res) => {
+  const newConfig = req.body;
+  db.update((data) => {
+    data.smsConfig = { ...data.smsConfig, ...newConfig };
+  });
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Config Change', 'Communication', 'Updated SMS Gateway service configurations.'
+  );
+  res.json({ smsConfig: db.get().smsConfig });
+});
+
+// Update MFA configuration
+app.post('/api/communication/mfa-config', (req, res) => {
+  const newConfig = req.body;
+  db.update((data) => {
+    data.mfaConfig = { ...data.mfaConfig, ...newConfig };
+  });
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Config Change', 'Communication', 'Updated global MFA authentication policy.'
+  );
+  res.json({ mfaConfig: db.get().mfaConfig });
+});
+
+// Update account security/password policies
+app.post('/api/communication/security-policy', (req, res) => {
+  const newConfig = req.body;
+  db.update((data) => {
+    data.securityPolicy = { ...data.securityPolicy, ...newConfig };
+  });
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Config Change', 'Security', 'Updated global user password complexity constraints.'
+  );
+  res.json({ securityPolicy: db.get().securityPolicy });
+});
+
+// SMTP diagnostic connection test & test email dispatch
+app.post('/api/communication/email-config/test', (req, res) => {
+  const { recipientEmail } = req.body;
+  const config = db.get().emailConfig;
+
+  if (!recipientEmail) {
+    return res.status(400).json({ error: 'Recipient email is required for SMTP diagnostics.' });
+  }
+
+  const success = config.enabled && config.smtpHost && config.smtpUser && config.smtpPassEncrypted;
+  const durationMs = Math.floor(200 + Math.random() * 800);
+  
+  const logId = `ELG-${Date.now()}`;
+  const testLog = {
+    id: logId,
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().split(' ')[0],
+    recipient: recipientEmail,
+    sender: config.senderEmail || 'hr-alerts@almansoori.com',
+    subject: 'SMTP Diagnostics Connection Handshake Test',
+    templateUsed: 'smtp_test_probe',
+    status: (success ? 'Sent' : 'Failed') as 'Sent' | 'Failed',
+    failureReason: success ? undefined : 'SMTP relay timeout / Bad connection details',
+    retryCount: 0,
+    smtpResponse: success ? '250 2.0.0 OK SMTP connection handshake success.' : '535 Authentication credentials invalid',
+    durationMs
+  };
+
+  db.update((data) => {
+    if (!data.emailLogs) data.emailLogs = [];
+    data.emailLogs.unshift(testLog);
+  });
+
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Config Change', 'Communication', `Executed SMTP connection diagnostics to ${recipientEmail}. Status: ${success ? 'SUCCESS' : 'FAILED'}`
+  );
+
+  if (success) {
+    res.json({ success: true, message: 'SMTP connection verified. Diagnostics test email transmitted.', log: testLog });
+  } else {
+    res.status(500).json({ success: false, error: 'SMTP connection handshaking failed.', log: testLog });
+  }
+});
+
+// SMS gateway diagnostics test
+app.post('/api/communication/sms-config/test', (req, res) => {
+  const { testNumber, message } = req.body;
+  const config = db.get().smsConfig;
+
+  if (!testNumber || !message) {
+    return res.status(400).json({ error: 'Recipient mobile number and message are required.' });
+  }
+
+  const success = config.enabled && config.apiKeyEncrypted && config.senderId;
+  const logId = `SLG-${Date.now()}`;
+  
+  const testLog = {
+    id: logId,
+    recipient: testNumber,
+    message,
+    provider: config.provider,
+    status: (success ? 'Delivered' : 'Failed') as 'Delivered' | 'Failed',
+    error: success ? undefined : 'API authentication failed - Invalid security key',
+    retryCount: 0,
+    costSAR: success ? 0.15 : 0.0,
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().split(' ')[0]
+  };
+
+  db.update((data) => {
+    if (!data.smsLogs) data.smsLogs = [];
+    data.smsLogs.unshift(testLog);
+  });
+
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Config Change', 'Communication', `Dispatched SMS gateway test payload to ${testNumber}. Status: ${success ? 'DELIVERED' : 'FAILED'}`
+  );
+
+  if (success) {
+    res.json({ success: true, message: 'SMS diagnostics payload transmitted successfully.', log: testLog });
+  } else {
+    res.status(500).json({ success: false, error: 'SMS Gateway response failure.', log: testLog });
+  }
+});
+
+// GET templates
+app.get('/api/communication/templates', (req, res) => {
+  res.json({ templates: db.get().emailTemplates || [] });
+});
+
+// Update templates structure
+app.post('/api/communication/templates', (req, res) => {
+  const { templates } = req.body;
+  if (!Array.isArray(templates)) {
+    return res.status(400).json({ error: 'Templates must be an array.' });
+  }
+
+  db.update((data) => {
+    data.emailTemplates = templates;
+  });
+
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Config Change', 'Communication', 'Modified communication email template mappings.'
+  );
+
+  res.json({ templates: db.get().emailTemplates });
+});
+
+// GET email logs
+app.get('/api/communication/logs/email', (req, res) => {
+  res.json({ logs: db.get().emailLogs || [] });
+});
+
+// GET SMS logs
+app.get('/api/communication/logs/sms', (req, res) => {
+  res.json({ logs: db.get().smsLogs || [] });
+});
+
+// Resend an email log entry
+app.post('/api/communication/logs/email/resend', (req, res) => {
+  const { logId } = req.body;
+  const state = db.get();
+  const targetLog = state.emailLogs.find(l => l.id === logId);
+
+  if (!targetLog) {
+    return res.status(404).json({ error: 'Delivery log not found.' });
+  }
+
+  const newLogId = `ELG-${Date.now()}`;
+  const resentLog = {
+    ...targetLog,
+    id: newLogId,
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().split(' ')[0],
+    status: 'Sent' as const,
+    failureReason: undefined,
+    retryCount: 0,
+    smtpResponse: '250 2.0.0 Resend OK via Administrative Action',
+    durationMs: Math.floor(100 + Math.random() * 400)
+  };
+
+  db.update((data) => {
+    data.emailLogs.unshift(resentLog);
+  });
+
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Update', 'Communication', `Resent log-referenced email to ${targetLog.recipient}.`
+  );
+
+  res.json({ success: true, log: resentLog });
+});
+
+// GET emailQueue items
+app.get('/api/communication/queue', (req, res) => {
+  res.json({ queue: db.get().emailQueue || [] });
+});
+
+// Trigger asynchronous processing of pending queue items
+app.post('/api/communication/queue/process', (req, res) => {
+  const state = db.get();
+  const pendingItems = state.emailQueue.filter(item => item.status === 'Pending' || item.status === 'Sending');
+
+  if (pendingItems.length === 0) {
+    return res.json({ message: 'Queue clean. Zero pending items found.', processedCount: 0 });
+  }
+
+  const processedLogs: any[] = [];
+  db.update((data) => {
+    data.emailQueue.forEach(item => {
+      if (item.status === 'Pending' || item.status === 'Sending') {
+        const isSuccessful = Math.random() < 0.85; // 85% success for visual realism
+        if (isSuccessful) {
+          item.status = 'Sent';
+          item.sentAt = new Date().toISOString();
+          
+          const newLog = {
+            id: `ELG-${Date.now()}-${Math.floor(Math.random() * 100)}`,
+            date: new Date().toISOString().split('T')[0],
+            time: new Date().toTimeString().split(' ')[0],
+            recipient: item.recipient,
+            sender: data.emailConfig.senderEmail || 'hr-alerts@almansoori.com',
+            subject: item.subject || 'System Notification',
+            templateUsed: item.templateId || 'direct_alert',
+            status: 'Sent' as const,
+            retryCount: item.retries,
+            smtpResponse: '250 2.0.0 OK Direct Asynchronous Queue Processed Successfully',
+            durationMs: Math.floor(100 + Math.random() * 400)
+          };
+          data.emailLogs.unshift(newLog);
+          processedLogs.push(newLog);
+        } else {
+          item.retries += 1;
+          if (item.retries >= item.maxRetries) {
+            item.status = 'Failed';
+            item.failureReason = 'Target relay dropped connection - Retries exhausted';
+            
+            const newLog = {
+              id: `ELG-${Date.now()}-${Math.floor(Math.random() * 100)}`,
+              date: new Date().toISOString().split('T')[0],
+              time: new Date().toTimeString().split(' ')[0],
+              recipient: item.recipient,
+              sender: data.emailConfig.senderEmail || 'hr-alerts@almansoori.com',
+              subject: item.subject || 'System Notification',
+              templateUsed: item.templateId || 'direct_alert',
+              status: 'Failed' as const,
+              retryCount: item.retries,
+              failureReason: 'Retries exhausted',
+              smtpResponse: '554 Relay connection dropped by server',
+              durationMs: 5000
+            };
+            data.emailLogs.unshift(newLog);
+            processedLogs.push(newLog);
+          } else {
+            item.status = 'Pending';
+          }
+        }
+      }
+    });
+  });
+
+  res.json({ success: true, processedCount: pendingItems.length, logs: processedLogs });
+});
+
+// GET Accounts combined user security state details
+app.get('/api/communication/accounts', (req, res) => {
+  const state = db.get();
+  const accounts = state.employees.map(emp => {
+    const sec = state.userSecurityStates?.find(s => s.employeeId === emp.id) || {
+      employeeId: emp.id,
+      username: emp.email.split('@')[0],
+      firstLoginResetRequired: true,
+      isLocked: false,
+      loginAttempts: 0,
+      mfaEnabled: false,
+      status: 'Active',
+      passwordSetDate: new Date().toISOString().split('T')[0]
+    };
+    return {
+      employeeId: emp.id,
+      fullName: emp.fullName,
+      email: emp.email,
+      department: emp.department,
+      position: emp.position,
+      status: emp.status,
+      security: sec
+    };
+  });
+  res.json({ accounts });
+});
+
+// POST administrative security account action on an account
+app.post('/api/communication/accounts/action', (req, res) => {
+  const { employeeId, action } = req.body;
+  const state = db.get();
+  const emp = state.employees.find(e => e.id === employeeId);
+
+  if (!emp) {
+    return res.status(404).json({ error: 'Employee not found.' });
+  }
+
+  let message = '';
+  db.update((data) => {
+    if (!data.userSecurityStates) data.userSecurityStates = [];
+    let sec = data.userSecurityStates.find(s => s.employeeId === employeeId);
+    
+    if (!sec) {
+      const username = emp.email.split('@')[0];
+      sec = {
+        employeeId: emp.id,
+        username,
+        hashedPassword: `pbkdf2_sha256$260000$${username}_salt$hashedpasswordemulated101`,
+        tempPassword: `${username.toUpperCase()}@2026_!`,
+        firstLoginResetRequired: true,
+        isLocked: false,
+        loginAttempts: 0,
+        mfaEnabled: false,
+        status: 'Active',
+        passwordSetDate: new Date().toISOString().split('T')[0]
+      };
+      data.userSecurityStates.push(sec);
+    }
+
+    if (action === 'unlock') {
+      sec.isLocked = false;
+      sec.loginAttempts = 0;
+      sec.status = 'Active';
+      sec.lockReason = undefined;
+      message = 'Security Account profile unlocked successfully.';
+    } else if (action === 'lock') {
+      sec.isLocked = true;
+      sec.status = 'Locked';
+      sec.lockReason = 'Manually administrative lock triggered.';
+      sec.lockTime = new Date().toISOString();
+      message = 'Security Account locked administrative block placed.';
+    } else if (action === 'activate') {
+      sec.status = 'Active';
+      message = 'Security Profile status toggled to Active.';
+    } else if (action === 'deactivate') {
+      sec.status = 'Inactive';
+      message = 'Security Profile account deactivated.';
+    } else if (action === 'force_reset') {
+      sec.firstLoginResetRequired = true;
+      message = 'Flagged: Force password reset required on next session.';
+    } else if (action === 'revoke_sessions') {
+      sec.sessionRevokedAt = new Date().toISOString();
+      message = 'All active web, mobile, and desktop portal sessions revoked.';
+    } else if (action === 'reset_password') {
+      const username = emp.email.split('@')[0];
+      const newTemp = `Reset@${Math.floor(1000 + Math.random() * 9000)}`;
+      sec.tempPassword = newTemp;
+      sec.firstLoginResetRequired = true;
+      
+      const resetLink = `https://hr.almansoori.com/activate?token=RESET_${Date.now()}`;
+      const queueItem = {
+        id: `QUE-${Date.now()}`,
+        type: 'email' as const,
+        recipient: emp.email,
+        subject: `Reset your Al-Mansoori HR Portal Password`,
+        message: `Dear ${emp.fullName},\n\nWe received a request to reset the password for your HR Portal account. Use the link below to set a new password:\n${resetLink}\n\nTemporary Reset Password: ${newTemp}\n\nThis recovery link is temporary.`,
+        templateId: 'password_reset',
+        payload: {
+          EmployeeName: emp.fullName,
+          ResetLink: resetLink,
+          TemporaryPassword: newTemp,
+          CompanyName: 'Al-Mansoori Industrial & Engineering Contracting Co.'
+        },
+        status: 'Pending' as const,
+        retries: 0,
+        maxRetries: 3,
+        createdAt: new Date().toISOString()
+      };
+      if (!data.emailQueue) data.emailQueue = [];
+      data.emailQueue.push(queueItem);
+      message = `Password reset triggered. Temporary reset pass is ${newTemp}. Recovery email queued.`;
+    } else if (action === 'welcome_again') {
+      const username = emp.email.split('@')[0];
+      const newTemp = sec.tempPassword || `Welcome@${Math.floor(1000 + Math.random() * 9000)}`;
+      sec.tempPassword = newTemp;
+      
+      const resetLink = `https://hr.almansoori.com/activate?token=WELCOME_${Date.now()}`;
+      const queueItem = {
+        id: `QUE-${Date.now()}`,
+        type: 'email' as const,
+        recipient: emp.email,
+        subject: `Welcome to Al-Mansoori - Set Up Your HR Portal Account`,
+        message: `Dear ${emp.fullName},\n\nWelcome to Al-Mansoori! Your HR Portal employee account is ready.\n\nTemporary credentials:\n- Username: ${username}\n- Temporary Password: ${newTemp}\n\nPlease click to activate:\n${resetLink}`,
+        templateId: 'welcome_email',
+        payload: {
+          EmployeeName: emp.fullName,
+          Position: emp.position,
+          Department: emp.department,
+          Username: username,
+          TemporaryPassword: newTemp,
+          EmployeeID: emp.id,
+          ResetLink: resetLink,
+          CompanyName: 'Al-Mansoori Industrial & Engineering Contracting Co.'
+        },
+        status: 'Pending' as const,
+        retries: 0,
+        maxRetries: 3,
+        createdAt: new Date().toISOString()
+      };
+      if (!data.emailQueue) data.emailQueue = [];
+      data.emailQueue.push(queueItem);
+      message = 'Welcome Onboarding Email resent. Transmitted successfully to queue.';
+    }
+  });
+
+  db.logActivity(
+    'ADMIN-001', 'Sarah Khalid Al-Ghamdi', 'Super Administrator',
+    'Security', 'Authentication', `Executed administrative account action [${action.toUpperCase()}] for user ${emp.fullName} (${employeeId}).`
+  );
+
+  res.json({ success: true, message });
 });
 
 

@@ -11,23 +11,22 @@ import {
   Clock,
   Briefcase,
   Layers,
-  X
+  X,
+  Mail
 } from 'lucide-react';
 import { SupportTicket, SystemSettings } from '../types';
+import CommunicationPlatform from './CommunicationPlatform';
 
 interface SupportSettingsViewProps {
-  state: {
-    tickets: SupportTicket[];
-    settings: SystemSettings;
-  };
-  currentUser: { id: string; fullName: string; role: string };
+  state: any;
+  currentUser: { id: string; fullName: string; role: string; department: string };
   isRtl: boolean;
   onRefresh: () => void;
 }
 
 export default function SupportSettingsView({ state, currentUser, isRtl, onRefresh }: SupportSettingsViewProps) {
   const { tickets, settings } = state;
-  const [activeSubTab, setActiveSubTab] = useState<'tickets' | 'settings'>('tickets');
+  const [activeSubTab, setActiveSubTab] = useState<'tickets' | 'settings' | 'communication'>('tickets');
 
   // New Ticket states
   const [showTicketModal, setShowTicketModal] = useState(false);
@@ -156,7 +155,7 @@ export default function SupportSettingsView({ state, currentUser, isRtl, onRefre
   return (
     <div id="support_settings_view" className="space-y-6">
       {/* Sub tabs */}
-      <div className="flex bg-gray-100 p-1 rounded-lg w-full max-w-sm">
+      <div className="flex bg-gray-100 p-1 rounded-lg w-full max-w-lg">
         <button
           onClick={() => setActiveSubTab('tickets')}
           className={`flex-1 py-2 rounded-md text-xs font-semibold cursor-pointer transition-all ${
@@ -173,6 +172,16 @@ export default function SupportSettingsView({ state, currentUser, isRtl, onRefre
         >
           {isRtl ? 'إعدادات المنصة المتقدمة' : 'Platform Settings'}
         </button>
+        {(currentUser.role === 'Super Administrator' || currentUser.role === 'HR Manager' || currentUser.role === 'admin' || currentUser.role === 'hr') && (
+          <button
+            onClick={() => setActiveSubTab('communication')}
+            className={`flex-1 py-2 rounded-md text-xs font-semibold cursor-pointer transition-all ${
+              activeSubTab === 'communication' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {isRtl ? 'إعدادات الاتصالات والأمان' : 'Communication Settings'}
+          </button>
+        )}
       </div>
 
       {activeSubTab === 'tickets' && (
@@ -367,7 +376,14 @@ export default function SupportSettingsView({ state, currentUser, isRtl, onRefre
         </div>
       )}
 
-      {/* Ticket Create Modal */}
+      {activeSubTab === 'communication' && (
+        <CommunicationPlatform
+          state={state}
+          currentUser={currentUser}
+          isRtl={isRtl}
+          onRefresh={onRefresh}
+        />
+      )}
       {showTicketModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full border border-gray-100 overflow-hidden">

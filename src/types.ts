@@ -371,4 +371,124 @@ export interface EnterpriseRequest {
   formData: Record<string, any>;
 }
 
+export type EmailProvider = 'm365' | 'gmail' | 'sendgrid' | 'ses' | 'mailgun' | 'brevo' | 'smtp';
+export type SmsProvider = 'unifonic' | 'taqny' | 'twilio' | 'sns';
 
+export interface EmailConfig {
+  provider: EmailProvider;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPassEncrypted: string; // Masked or encrypted
+  secureMode: 'SSL' | 'TLS' | 'STARTTLS' | 'None';
+  senderEmail: string;
+  senderName: string;
+  replyTo: string;
+  timeoutMs: number;
+  maxRetries: number;
+  dailyLimit: number;
+  enabled: boolean;
+}
+
+export interface SmsConfig {
+  provider: SmsProvider;
+  apiKeyEncrypted: string;
+  secretEncrypted: string;
+  senderId: string;
+  dailyLimit: number;
+  enabled: boolean;
+}
+
+export interface MfaConfig {
+  globalEnabled: boolean;
+  enabledRoles: string[]; // Role names
+  methods: ('email_otp' | 'sms_otp' | 'authenticator')[];
+}
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  subjectAr: string;
+  body: string;
+  bodyAr: string;
+  language: 'en' | 'ar' | 'both';
+  variables: string[];
+  enabled: boolean;
+}
+
+export interface EmailLog {
+  id: string;
+  date: string;
+  time: string;
+  recipient: string;
+  sender: string;
+  subject: string;
+  templateUsed: string;
+  status: 'Sent' | 'Failed' | 'Retry Pending';
+  failureReason?: string;
+  retryCount: number;
+  smtpResponse?: string;
+  durationMs: number;
+}
+
+export interface SmsLog {
+  id: string;
+  recipient: string;
+  message: string;
+  provider: SmsProvider;
+  status: 'Delivered' | 'Failed' | 'Pending';
+  error?: string;
+  retryCount: number;
+  costSAR: number;
+  date: string;
+  time: string;
+}
+
+export interface QueueItem {
+  id: string;
+  type: 'email' | 'sms';
+  recipient: string;
+  subject?: string;
+  message: string;
+  templateId?: string;
+  payload: any;
+  status: 'Pending' | 'Sending' | 'Sent' | 'Failed';
+  retries: number;
+  maxRetries: number;
+  scheduledFor?: string;
+  createdAt: string;
+  sentAt?: string;
+  failureReason?: string;
+}
+
+export interface AccountSecurityPolicy {
+  passwordLength: number;
+  complexityNumbers: boolean;
+  complexitySpecial: boolean;
+  complexityUppercase: boolean;
+  passwordExpirationDays: number;
+  passwordHistoryLimit: number;
+  maxLoginAttempts: number;
+  lockoutDurationMinutes: number;
+  sessionTimeoutMinutes: number;
+  forcedPasswordChangeOnCreate: boolean;
+  inactiveAccountDisableDays: number;
+}
+
+export interface UserSecurityState {
+  employeeId: string;
+  username: string;
+  hashedPassword?: string;
+  tempPassword?: string;
+  firstLoginResetRequired: boolean;
+  isLocked: boolean;
+  loginAttempts: number;
+  lockReason?: string;
+  lockTime?: string;
+  sessionRevokedAt?: string;
+  mfaEnabled: boolean;
+  mfaSecret?: string;
+  status: 'Active' | 'Locked' | 'Suspended' | 'Inactive';
+  passwordSetDate: string;
+}
