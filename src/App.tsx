@@ -621,6 +621,7 @@ export default function App() {
             <PayrollLoanView
               employees={state.employees}
               loans={state.loans}
+              payrollRuns={state.payrollRuns || []}
               currentUser={currentUser}
               isRtl={isRtl}
               onRefresh={fetchState}

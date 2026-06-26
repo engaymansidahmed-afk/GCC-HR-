@@ -15,7 +15,8 @@ import {
   AuditLog, 
   Notification, 
   SystemSettings, 
-  Warehouse 
+  Warehouse,
+  PayrollRun 
 } from './types';
 
 export interface DatabaseSchema {
@@ -36,6 +37,7 @@ export interface DatabaseSchema {
   auditLogs: AuditLog[];
   notifications: Notification[];
   settings: SystemSettings;
+  payrollRuns: PayrollRun[];
 }
 
 export const FALLBACK_SETTINGS: SystemSettings = {
@@ -440,6 +442,141 @@ export const FALLBACK_NOTIFICATIONS: Notification[] = [
   }
 ];
 
+export const FALLBACK_PAYROLL_RUNS: PayrollRun[] = [
+  {
+    id: 'PAY-2026-06',
+    month: '06',
+    year: 2026,
+    status: 'Locked',
+    approvalWorkflow: {
+      officer: { status: 'Approved', by: 'Sarah Khalid Al-Ghamdi', date: '2026-06-25', comment: 'Prepared monthly registers.' },
+      finance: { status: 'Approved', by: 'Mohammad Salem Al-Qahtani', date: '2026-06-25', comment: 'Audit matched with ledger.' },
+      hr: { status: 'Approved', by: 'Sarah Khalid Al-Ghamdi', date: '2026-06-25', comment: 'All leave deductions synced.' },
+      gm: { status: 'Approved', by: 'Tariq Abdulaziz Al-Otaibi', date: '2026-06-26', comment: 'Released for payment.' }
+    },
+    employees: [
+      {
+        employeeId: 'EMP-2026-001',
+        employeeName: 'Tariq Abdulaziz Al-Otaibi',
+        department: 'Executive Management',
+        position: 'Director',
+        branch: 'Riyadh (HQ)',
+        project: 'HQ',
+        employmentType: 'Full-Time',
+        basicSalary: 35000,
+        housingAllowance: 8750,
+        transportationAllowance: 3500,
+        communicationAllowance: 800,
+        foodAllowance: 500,
+        otherAllowances: 0,
+        overtime: 1500,
+        bonuses: 2000,
+        incentives: 0,
+        commissions: 0,
+        loanDeductions: 0,
+        salaryAdvanceDeductions: 0,
+        gosi: 4266,
+        taxes: 0,
+        otherDeductions: 0,
+        grossSalary: 52050,
+        netSalary: 47784,
+        paymentMethod: 'Bank Transfer (WPS)',
+        paymentStatus: 'Paid',
+        paymentDate: '2026-06-26'
+      },
+      {
+        employeeId: 'EMP-2026-002',
+        employeeName: 'Sarah Khalid Al-Ghamdi',
+        department: 'Human Resources',
+        position: 'Manager',
+        branch: 'Riyadh (HQ)',
+        project: 'HQ',
+        employmentType: 'Full-Time',
+        basicSalary: 18000,
+        housingAllowance: 4500,
+        transportationAllowance: 1800,
+        communicationAllowance: 500,
+        foodAllowance: 500,
+        otherAllowances: 0,
+        overtime: 0,
+        bonuses: 0,
+        incentives: 0,
+        commissions: 0,
+        loanDeductions: 0,
+        salaryAdvanceDeductions: 0,
+        gosi: 2194,
+        taxes: 0,
+        otherDeductions: 0,
+        grossSalary: 25300,
+        netSalary: 23106,
+        paymentMethod: 'Bank Transfer (WPS)',
+        paymentStatus: 'Paid',
+        paymentDate: '2026-06-26'
+      },
+      {
+        employeeId: 'EMP-2026-003',
+        employeeName: 'Mohammad Salem Al-Qahtani',
+        department: 'Finance & Payroll',
+        position: 'Manager',
+        branch: 'Riyadh (HQ)',
+        project: 'HQ',
+        employmentType: 'Full-Time',
+        basicSalary: 22000,
+        housingAllowance: 5500,
+        transportationAllowance: 2200,
+        communicationAllowance: 500,
+        foodAllowance: 500,
+        otherAllowances: 1000,
+        overtime: 0,
+        bonuses: 1000,
+        incentives: 500,
+        commissions: 0,
+        loanDeductions: 0,
+        salaryAdvanceDeductions: 0,
+        gosi: 2681,
+        taxes: 0,
+        otherDeductions: 0,
+        grossSalary: 32700,
+        netSalary: 30019,
+        paymentMethod: 'Bank Transfer (WPS)',
+        paymentStatus: 'Paid',
+        paymentDate: '2026-06-26'
+      },
+      {
+        employeeId: 'EMP-2026-005',
+        employeeName: 'Rajesh Subramanian Kumar',
+        department: 'Engineering & Operations',
+        position: 'Operator',
+        branch: 'NEOM Site Office',
+        project: 'PRJ-NEO-03',
+        employmentType: 'Contract',
+        basicSalary: 6500,
+        housingAllowance: 1625,
+        transportationAllowance: 1000,
+        communicationAllowance: 200,
+        foodAllowance: 500,
+        otherAllowances: 300,
+        overtime: 850,
+        bonuses: 0,
+        incentives: 0,
+        commissions: 0,
+        loanDeductions: 1250,
+        salaryAdvanceDeductions: 0,
+        gosi: 0,
+        taxes: 0,
+        otherDeductions: 0,
+        grossSalary: 10975,
+        netSalary: 9725,
+        paymentMethod: 'Bank Transfer (WPS)',
+        paymentStatus: 'Paid',
+        paymentDate: '2026-06-26'
+      }
+    ],
+    createdAt: '2026-06-20T08:00:00Z',
+    updatedAt: '2026-06-26T08:00:00Z'
+  }
+];
+
 export const FALLBACK_STATE: DatabaseSchema = {
   employees: FALLBACK_EMPLOYEES,
   attendance: FALLBACK_ATTENDANCE,
@@ -484,5 +621,6 @@ export const FALLBACK_STATE: DatabaseSchema = {
     { id: 'AUD-001', timestamp: new Date().toISOString(), userId: 'EMP-2026-001', userName: 'Tariq Abdulaziz Al-Otaibi', userRole: 'Super Administrator', actionType: 'Login', module: 'Auth', description: 'Super Admin logged in successfully.', ipAddress: '127.0.0.1' }
   ],
   notifications: FALLBACK_NOTIFICATIONS,
-  settings: FALLBACK_SETTINGS
+  settings: FALLBACK_SETTINGS,
+  payrollRuns: FALLBACK_PAYROLL_RUNS
 };

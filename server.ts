@@ -3,7 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/db';
 import { GoogleGenAI } from '@google/genai';
-import { Employee } from './src/types';
+import { Employee, ApprovalHistoryItem } from './src/types';
 
 const app = express();
 const PORT = 3000;
@@ -320,6 +320,252 @@ app.post('/api/leaves/:id/approve', (req, res) => {
   res.json({ leave: updatedRequest });
 });
 
+// Unified Enterprise Requests APIs
+app.get('/api/requests', (req, res) => {
+  try {
+    res.json(db.get().requests || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve requests' });
+  }
+});
+
+app.post('/api/requests', (req, res) => {
+  const {
+    employeeId,
+    employeeName,
+    department,
+    branch,
+    jobTitle,
+    category,
+    requestType,
+    priority,
+    isFinancial,
+    valueSAR,
+    details,
+    formData,
+    status = 'Pending Approval'
+  } = req.body;
+
+  const reqId = `REQ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const newRequest = {
+    id: reqId,
+    employeeId,
+    employeeName,
+    department,
+    branch,
+    jobTitle,
+    category,
+    requestType,
+    requestDate: new Date().toISOString().split('T')[0],
+    status, // 'Draft', 'Submitted', 'Pending Approval'
+    priority: priority || 'Medium',
+    currentLevel: status === 'Draft' ? 0 : 1,
+    currentLevelName: status === 'Draft' ? 'Draft' : 'Level 1 – Direct Supervisor',
+    currentApprover: status === 'Draft' ? employeeName : 'Ahmed Faraj Al-Dossary (Supervisor)',
+    isFinancial: !!isFinancial,
+    valueSAR: Number(valueSAR) || 0,
+    details: details || '',
+    slaLimitHours: priority === 'Critical' ? 24 : priority === 'High' ? 48 : 72,
+    pendingDays: 0,
+    submissionDate: new Date().toISOString().split('T')[0],
+    lastActionDate: new Date().toISOString().split('T')[0],
+    history: status === 'Draft' ? ([] as ApprovalHistoryItem[]) : [
+      {
+        level: 0,
+        levelName: 'Employee Submission',
+        approverName: employeeName,
+        action: 'Submitted' as const,
+        date: new Date().toISOString().split('T')[0],
+        comment: 'Request submitted for corporate approval.'
+      }
+    ],
+    formData: formData || {}
+  };
+
+  db.update((data) => {
+    if (!data.requests) {
+      data.requests = [];
+    }
+    data.requests.unshift(newRequest);
+  });
+
+  db.logActivity(
+    employeeId,
+    employeeName,
+    'Employee',
+    'Create',
+    'Requests',
+    `Submitted ${requestType} request (${reqId}) under category ${category}`
+  );
+
+  if (status !== 'Draft') {
+    db.addNotification(
+      `New Request: ${requestType}`,
+      `A new ${requestType} request (${reqId}) from ${employeeName} is pending Supervisor approval.`,
+      'info',
+      'Requests'
+    );
+  }
+
+  res.json({ request: newRequest });
+});
+
+app.post('/api/requests/:id/action', (req, res) => {
+  const { id } = req.params;
+  const { approverId, approverName, role, action, comment, delegateTo, signature } = req.body;
+
+  let updatedRequest: any = null;
+
+  db.update((data) => {
+    const request = (data.requests || []).find((r) => r.id === id);
+    if (!request) return;
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    request.lastActionDate = dateStr;
+
+    if (action === 'reject') {
+      request.status = 'Rejected';
+      const newHistoryItem = {
+        level: request.currentLevel,
+        levelName: request.currentLevelName,
+        approverName,
+        action: 'Rejected' as const,
+        date: dateStr,
+        comment: comment || 'Rejected during corporate review.',
+        signature
+      };
+      request.history.push(newHistoryItem);
+    } else if (action === 'return') {
+      request.status = 'Returned for Correction';
+      request.currentLevel = 1;
+      request.currentLevelName = 'Level 1 – Direct Supervisor';
+      request.currentApprover = 'Ahmed Faraj Al-Dossary (Supervisor)';
+      const newHistoryItem = {
+        level: request.currentLevel,
+        levelName: request.currentLevelName,
+        approverName,
+        action: 'Returned for Correction' as const,
+        date: dateStr,
+        comment: comment || 'Returned for correction/modification.',
+        signature
+      };
+      request.history.push(newHistoryItem);
+    } else if (action === 'delegate') {
+      const prevApprover = request.currentApprover;
+      request.currentApprover = delegateTo || 'Delegate Approver';
+      const newHistoryItem = {
+        level: request.currentLevel,
+        levelName: request.currentLevelName,
+        approverName,
+        action: 'Delegated' as const,
+        date: dateStr,
+        comment: comment || `Delegated authority from ${prevApprover} to ${request.currentApprover}.`,
+        signature
+      };
+      request.history.push(newHistoryItem);
+    } else if (action === 'escalate') {
+      request.priority = 'Critical';
+      const newHistoryItem = {
+        level: request.currentLevel,
+        levelName: request.currentLevelName,
+        approverName,
+        action: 'Escalated' as const,
+        date: dateStr,
+        comment: comment || 'SLA Exceeded. Escalated to Executive Management.',
+        signature
+      };
+      request.history.push(newHistoryItem);
+    } else if (action === 'approve') {
+      // Approve and advance level
+      const currentLevel = request.currentLevel;
+      let nextLevel = currentLevel + 1;
+      
+      // Level transitions:
+      // 1 (Supervisor) -> 2 (Dept Manager)
+      // 2 (Dept Manager) -> 3 (HR Manager)
+      // 3 (HR Manager) -> 4 (Finance Manager) if financial, else skip to 5 (General Manager)
+      // 4 (Finance Manager) -> 5 (General Manager)
+      // 5 (General Manager) -> Completed (6)
+      
+      if (currentLevel === 3 && !request.isFinancial) {
+        nextLevel = 5; // skip Finance if not financial
+      }
+
+      const newHistoryItem = {
+        level: currentLevel,
+        levelName: request.currentLevelName,
+        approverName,
+        action: 'Approved' as const,
+        date: dateStr,
+        comment: comment || 'Approved and signed.',
+        signature
+      };
+      request.history.push(newHistoryItem);
+
+      if (nextLevel > 5) {
+        request.status = 'Approved';
+        request.currentLevel = 5;
+        request.currentLevelName = 'Completed - Approved';
+        request.currentApprover = 'Completed';
+      } else {
+        request.currentLevel = nextLevel;
+        request.status = 'Pending Approval';
+        
+        if (nextLevel === 2) {
+          request.currentLevelName = 'Level 2 – Department Manager';
+          request.currentApprover = 'Bandar Al-Ghamdi (Project Manager)';
+        } else if (nextLevel === 3) {
+          request.currentLevelName = 'Level 3 – Human Resources Department';
+          request.currentApprover = 'Sarah Khalid Al-Ghamdi (HR Mgr)';
+        } else if (nextLevel === 4) {
+          request.currentLevelName = 'Level 4 – Finance / Accountant';
+          request.currentApprover = 'Mohammad Salem Al-Qahtani (Finance Dir)';
+        } else if (nextLevel === 5) {
+          request.currentLevelName = 'Level 5 – General Manager (Final Approval)';
+          request.currentApprover = 'Tariq Abdulaziz Al-Otaibi (General Manager)';
+        }
+      }
+    } else if (action === 'submit_draft') {
+      request.status = 'Pending Approval';
+      request.currentLevel = 1;
+      request.currentLevelName = 'Level 1 – Direct Supervisor';
+      request.currentApprover = 'Ahmed Faraj Al-Dossary (Supervisor)';
+      request.history.push({
+        level: 0,
+        levelName: 'Draft Submission',
+        approverName,
+        action: 'Submitted' as const,
+        date: dateStr,
+        comment: 'Draft request submitted for corporate approval.',
+        signature
+      });
+    }
+
+    updatedRequest = request;
+  });
+
+  if (updatedRequest) {
+    db.logActivity(
+      approverId,
+      approverName,
+      role,
+      'Approval',
+      'Requests',
+      `Processed request ${id} (${action}). Status: ${updatedRequest.status}, Level: ${updatedRequest.currentLevelName}`
+    );
+
+    db.addNotification(
+      `Request Update: ${id}`,
+      `Request ${id} (${updatedRequest.requestType}) from ${updatedRequest.employeeName} updated to ${updatedRequest.status}.`,
+      action === 'reject' ? 'warning' : 'success',
+      'Requests'
+    );
+  }
+
+  res.json({ request: updatedRequest });
+});
+
 // Loan Requests & Installments
 app.post('/api/loans', (req, res) => {
   const { employeeId, employeeName, amount, repaymentMonths } = req.body;
@@ -392,6 +638,346 @@ app.post('/api/loans/:id/action', (req, res) => {
   }
 
   res.json({ loan: updatedLoan });
+});
+
+// ==========================================
+// ENTERPRISE PAYROLL MODULE ENDPOINTS
+// ==========================================
+
+// Get all payroll runs
+app.get('/api/payroll', (req, res) => {
+  try {
+    const state = db.get();
+    res.json(state.payrollRuns || []);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve payroll runs' });
+  }
+});
+
+// Generate a new payroll run for a specific month and year
+app.post('/api/payroll/generate', (req, res) => {
+  const { month, year, generatedBy, generatedByName, role, ip } = req.body;
+  if (!month || !year) {
+    return res.status(400).json({ error: 'Month and year are required' });
+  }
+
+  const runId = `PAY-${year}-${month}`;
+  const state = db.get();
+  const exists = (state.payrollRuns || []).find(r => r.id === runId);
+  if (exists) {
+    return res.status(400).json({ error: `Payroll run for ${year}-${month} already exists.` });
+  }
+
+  const activeEmployees = state.employees.filter(e => e.status === 'Active' || e.status === 'On Leave');
+  const items = activeEmployees.map(emp => {
+    const basic = emp.basicSalary || 0;
+    const housing = emp.housingAllowance || 0;
+    const transport = emp.transportationAllowance || 0;
+    const comm = emp.communicationAllowance || 0;
+    const food = emp.foodAllowance || 0;
+
+    // Find active loan
+    const activeLoan = state.loans.find(l => l.employeeId === emp.id && l.status === 'Active');
+    const loanDeduction = activeLoan ? Math.min(activeLoan.monthlyInstallment, activeLoan.outstandingBalance) : 0;
+
+    // GOSI
+    const isSaudi = emp.nationality === 'Saudi Arabia';
+    const gosiDeduction = isSaudi ? Math.round((basic + housing) * 0.0975) : 0;
+
+    const totalEarnings = basic + housing + transport + comm + food;
+    const totalDeductions = loanDeduction + gosiDeduction;
+    const netSalary = totalEarnings - totalDeductions;
+
+    // Branch assignment fallback
+    const branchName = emp.nationality === 'Saudi Arabia' ? 'Riyadh (HQ)' : 'NEOM Site Office';
+
+    return {
+      employeeId: emp.id,
+      employeeName: emp.fullName,
+      department: emp.department || 'Unassigned',
+      position: emp.position || 'Staff',
+      branch: branchName,
+      project: emp.projectAssignment || 'HQ',
+      employmentType: emp.employmentType || 'Full-Time',
+      basicSalary: basic,
+      housingAllowance: housing,
+      transportationAllowance: transport,
+      communicationAllowance: comm,
+      foodAllowance: food,
+      otherAllowances: 0,
+      overtime: 0,
+      bonuses: 0,
+      incentives: 0,
+      commissions: 0,
+      loanDeductions: loanDeduction,
+      salaryAdvanceDeductions: 0,
+      gosi: gosiDeduction,
+      taxes: 0,
+      otherDeductions: 0,
+      grossSalary: totalEarnings,
+      netSalary: netSalary,
+      paymentMethod: 'Bank Transfer (WPS)',
+      paymentStatus: 'Pending'
+    };
+  });
+
+  const newRun = {
+    id: runId,
+    month,
+    year: Number(year),
+    status: 'Draft',
+    approvalWorkflow: {},
+    employees: items,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  db.update((data) => {
+    if (!data.payrollRuns) data.payrollRuns = [];
+    data.payrollRuns.unshift(newRun as any);
+  });
+
+  db.logActivity(
+    generatedBy || 'ADMIN-001',
+    generatedByName || 'Sarah Khalid Al-Ghamdi',
+    role || 'HR Manager',
+    'Payroll Run' as any,
+    'Payroll',
+    `Generated draft payroll run ${runId} with ${items.length} employees included.`,
+    ip || '127.0.0.1'
+  );
+
+  db.addNotification(
+    'Payroll Run Generated',
+    `New payroll run register created for period ${year}-${month}. Pending workflow approvals.`,
+    'info',
+    'Payroll'
+  );
+
+  res.status(201).json(newRun);
+});
+
+// Update single line item details in draft payroll run (overtime, bonuses, other allowances, commissions, other deductions)
+app.post('/api/payroll/:id/update-row', (req, res) => {
+  const { id } = req.params;
+  const { employeeId, overtime, bonuses, incentives, commissions, otherAllowances, otherDeductions, salaryAdvanceDeductions, modifiedBy, modifiedByName, role, ip } = req.body;
+
+  let updatedRun: any = null;
+  db.update((data) => {
+    const run = data.payrollRuns.find(r => r.id === id);
+    if (!run) return;
+    if (run.status !== 'Draft') return; // Cannot edit unless draft
+
+    const emp = run.employees.find(e => e.employeeId === employeeId);
+    if (!emp) return;
+
+    emp.overtime = Number(overtime) || 0;
+    emp.bonuses = Number(bonuses) || 0;
+    emp.incentives = Number(incentives) || 0;
+    emp.commissions = Number(commissions) || 0;
+    emp.otherAllowances = Number(otherAllowances) || 0;
+    emp.otherDeductions = Number(otherDeductions) || 0;
+    emp.salaryAdvanceDeductions = Number(salaryAdvanceDeductions) || 0;
+
+    // Recompute gross and net
+    const totalEarnings = emp.basicSalary + emp.housingAllowance + emp.transportationAllowance + emp.communicationAllowance + emp.foodAllowance + emp.otherAllowances + emp.overtime + emp.bonuses + emp.incentives + emp.commissions;
+    const totalDeductions = emp.loanDeductions + emp.salaryAdvanceDeductions + emp.gosi + emp.taxes + emp.otherDeductions;
+    emp.grossSalary = totalEarnings;
+    emp.netSalary = totalEarnings - totalDeductions;
+
+    run.updatedAt = new Date().toISOString();
+    updatedRun = run;
+  });
+
+  if (!updatedRun) {
+    return res.status(400).json({ error: 'Failed to update row. Run may be approved/locked or not found.' });
+  }
+
+  db.logActivity(
+    modifiedBy || 'ADMIN-001',
+    modifiedByName || 'Sarah Khalid Al-Ghamdi',
+    role || 'HR Manager',
+    'Update',
+    'Payroll',
+    `Modified payroll details for Employee ID ${employeeId} in run ${id}.`,
+    ip || '127.0.0.1'
+  );
+
+  res.json(updatedRun);
+});
+
+// Approve payroll sequentially
+app.post('/api/payroll/:id/approve', (req, res) => {
+  const { id } = req.params;
+  const { step, approverId, approverName, role, comment, ip } = req.body;
+
+  if (!step || !approverId || !approverName) {
+    return res.status(400).json({ error: 'Step and approver details are required.' });
+  }
+
+  let updatedRun: any = null;
+  db.update((data) => {
+    const run = data.payrollRuns.find(r => r.id === id);
+    if (!run) return;
+
+    if (step === 'officer') {
+      run.status = 'Approved_Officer';
+      run.approvalWorkflow.officer = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
+    } else if (step === 'finance') {
+      run.status = 'Approved_Finance';
+      run.approvalWorkflow.finance = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
+    } else if (step === 'hr') {
+      run.status = 'Approved_HR';
+      run.approvalWorkflow.hr = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
+    } else if (step === 'gm') {
+      run.status = 'Locked'; // Final step locks the run
+      run.approvalWorkflow.gm = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
+
+      // Deduct loan balances and pay employees
+      run.employees.forEach(empItem => {
+        empItem.paymentStatus = 'Paid';
+        empItem.paymentDate = new Date().toISOString().split('T')[0];
+
+        if (empItem.loanDeductions > 0) {
+          const activeLoan = data.loans.find(l => l.employeeId === empItem.employeeId && l.status === 'Active');
+          if (activeLoan) {
+            activeLoan.outstandingBalance = Math.max(0, activeLoan.outstandingBalance - empItem.loanDeductions);
+            if (activeLoan.outstandingBalance <= 0) {
+              activeLoan.status = 'Closed';
+            }
+            if (!activeLoan.installmentHistory) {
+              activeLoan.installmentHistory = [];
+            }
+            activeLoan.installmentHistory.push({
+              month: `${run.year}-${run.month}`,
+              amountPaid: empItem.loanDeductions,
+              date: new Date().toISOString().split('T')[0]
+            });
+          }
+        }
+      });
+    }
+
+    run.updatedAt = new Date().toISOString();
+    updatedRun = run;
+  });
+
+  if (!updatedRun) {
+    return res.status(404).json({ error: 'Payroll run not found' });
+  }
+
+  db.logActivity(
+    approverId,
+    approverName,
+    role || 'Super Administrator',
+    'Approval',
+    'Payroll',
+    `Approved payroll run ${id} at step: ${step}. Comment: ${comment || 'Approved'}`,
+    ip || '127.0.0.1'
+  );
+
+  db.addNotification(
+    'Payroll Approved',
+    `Payroll run ${id} approved by ${approverName} (${role}) for step ${step}.`,
+    'success',
+    'Payroll'
+  );
+
+  res.json(updatedRun);
+});
+
+// Reopen approved/locked payroll to Draft status
+app.post('/api/payroll/:id/reopen', (req, res) => {
+  const { id } = req.params;
+  const { userId, userName, role, comment, ip } = req.body;
+
+  let updatedRun: any = null;
+  db.update((data) => {
+    const run = data.payrollRuns.find(r => r.id === id);
+    if (!run) return;
+
+    run.status = 'Draft';
+    run.approvalWorkflow = {};
+    run.employees.forEach(e => {
+      e.paymentStatus = 'Pending';
+      delete e.paymentDate;
+    });
+    run.updatedAt = new Date().toISOString();
+    updatedRun = run;
+  });
+
+  if (!updatedRun) {
+    return res.status(404).json({ error: 'Payroll run not found' });
+  }
+
+  db.logActivity(
+    userId || 'ADMIN-001',
+    userName || 'Sarah Khalid Al-Ghamdi',
+    role || 'HR Manager',
+    'Payroll Run' as any,
+    'Payroll',
+    `Reopened payroll run ${id} to Draft. Comment: ${comment || 'Reopened for corrections'}`,
+    ip || '127.0.0.1'
+  );
+
+  db.addNotification(
+    'Payroll Reopened',
+    `Payroll run ${id} has been reopened to Draft status. All approvals reset.`,
+    'warning',
+    'Payroll'
+  );
+
+  res.json(updatedRun);
+});
+
+// Cancel and delete draft payroll run
+app.post('/api/payroll/:id/cancel', (req, res) => {
+  const { id } = req.params;
+  const { userId, userName, role, ip } = req.body;
+
+  let success = false;
+  db.update((data) => {
+    const index = data.payrollRuns.findIndex(r => r.id === id);
+    if (index !== -1) {
+      if (data.payrollRuns[index].status === 'Draft') {
+        data.payrollRuns.splice(index, 1);
+        success = true;
+      }
+    }
+  });
+
+  if (!success) {
+    return res.status(400).json({ error: 'Cannot cancel payroll. Run may be approved, locked, or not found.' });
+  }
+
+  db.logActivity(
+    userId || 'ADMIN-001',
+    userName || 'Sarah Khalid Al-Ghamdi',
+    role || 'HR Manager',
+    'Payroll Run' as any,
+    'Payroll',
+    `Cancelled and deleted draft payroll run ${id}.`,
+    ip || '127.0.0.1'
+  );
+
+  res.json({ success: true });
+});
+
+// Post direct payroll actions to audit trails (printing, exporting, etc.)
+app.post('/api/payroll/audit-log', (req, res) => {
+  const { userId, userName, role, actionType, payrollMonth, payrollYear, employeesIncluded, fileFormat, ip } = req.body;
+
+  db.logActivity(
+    userId || 'ADMIN-001',
+    userName || 'Sarah Khalid Al-Ghamdi',
+    role || 'HR Manager',
+    actionType || 'Update',
+    'Payroll',
+    `Exported/Printed payroll for ${payrollYear}-${payrollMonth} in ${fileFormat} format. Included ${employeesIncluded} employees.`,
+    ip || '127.0.0.1'
+  );
+
+  res.json({ success: true });
 });
 
 // Create Maintenance Work Order

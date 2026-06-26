@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { seedRequests } from './seedRequests';
 import {
   Employee,
   Attendance,
@@ -17,7 +18,10 @@ import {
   AuditLog,
   Notification,
   SystemSettings,
-  Warehouse
+  Warehouse,
+  PayrollRun,
+  EnterpriseRequest,
+  ApprovalHistoryItem
 } from '../src/types';
 
 interface DatabaseSchema {
@@ -38,6 +42,8 @@ interface DatabaseSchema {
   auditLogs: AuditLog[];
   notifications: Notification[];
   settings: SystemSettings;
+  payrollRuns: PayrollRun[];
+  requests: EnterpriseRequest[];
 }
 
 const DB_FILE = path.join(process.cwd(), 'db.json');
@@ -714,11 +720,154 @@ export class Database {
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (!parsed.payrollRuns) {
+          parsed.payrollRuns = [];
+        }
+        if (!parsed.requests) {
+          parsed.requests = seedRequests;
+          fs.writeFileSync(DB_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
+        }
+        return parsed;
       }
     } catch (e) {
       console.error('Failed to load database, falling back to seed.', e);
     }
+
+    const seedPayrollRuns: PayrollRun[] = [
+      {
+        id: 'PAY-2026-06',
+        month: '06',
+        year: 2026,
+        status: 'Locked',
+        approvalWorkflow: {
+          officer: { status: 'Approved', by: 'Sarah Khalid Al-Ghamdi', date: '2026-06-25', comment: 'Prepared monthly registers.' },
+          finance: { status: 'Approved', by: 'Mohammad Salem Al-Qahtani', date: '2026-06-25', comment: 'Audit matched with ledger.' },
+          hr: { status: 'Approved', by: 'Sarah Khalid Al-Ghamdi', date: '2026-06-25', comment: 'All leave deductions synced.' },
+          gm: { status: 'Approved', by: 'Tariq Abdulaziz Al-Otaibi', date: '2026-06-26', comment: 'Released for payment.' }
+        },
+        employees: [
+          {
+            employeeId: 'EMP-2026-001',
+            employeeName: 'Tariq Abdulaziz Al-Otaibi',
+            department: 'Executive Management',
+            position: 'Director',
+            branch: 'Riyadh (HQ)',
+            project: 'HQ',
+            employmentType: 'Full-Time',
+            basicSalary: 35000,
+            housingAllowance: 8750,
+            transportationAllowance: 3500,
+            communicationAllowance: 800,
+            foodAllowance: 500,
+            otherAllowances: 0,
+            overtime: 1500,
+            bonuses: 2000,
+            incentives: 0,
+            commissions: 0,
+            loanDeductions: 0,
+            salaryAdvanceDeductions: 0,
+            gosi: 4266,
+            taxes: 0,
+            otherDeductions: 0,
+            grossSalary: 52050,
+            netSalary: 47784,
+            paymentMethod: 'Bank Transfer (WPS)',
+            paymentStatus: 'Paid',
+            paymentDate: '2026-06-26'
+          },
+          {
+            employeeId: 'EMP-2026-002',
+            employeeName: 'Sarah Khalid Al-Ghamdi',
+            department: 'Human Resources',
+            position: 'Manager',
+            branch: 'Riyadh (HQ)',
+            project: 'HQ',
+            employmentType: 'Full-Time',
+            basicSalary: 18000,
+            housingAllowance: 4500,
+            transportationAllowance: 1800,
+            communicationAllowance: 500,
+            foodAllowance: 500,
+            otherAllowances: 0,
+            overtime: 0,
+            bonuses: 0,
+            incentives: 0,
+            commissions: 0,
+            loanDeductions: 0,
+            salaryAdvanceDeductions: 0,
+            gosi: 2194,
+            taxes: 0,
+            otherDeductions: 0,
+            grossSalary: 25300,
+            netSalary: 23106,
+            paymentMethod: 'Bank Transfer (WPS)',
+            paymentStatus: 'Paid',
+            paymentDate: '2026-06-26'
+          },
+          {
+            employeeId: 'EMP-2026-003',
+            employeeName: 'Mohammad Salem Al-Qahtani',
+            department: 'Finance & Payroll',
+            position: 'Manager',
+            branch: 'Riyadh (HQ)',
+            project: 'HQ',
+            employmentType: 'Full-Time',
+            basicSalary: 22000,
+            housingAllowance: 5500,
+            transportationAllowance: 2200,
+            communicationAllowance: 500,
+            foodAllowance: 500,
+            otherAllowances: 1000,
+            overtime: 0,
+            bonuses: 1000,
+            incentives: 500,
+            commissions: 0,
+            loanDeductions: 0,
+            salaryAdvanceDeductions: 0,
+            gosi: 2681,
+            taxes: 0,
+            otherDeductions: 0,
+            grossSalary: 32700,
+            netSalary: 30019,
+            paymentMethod: 'Bank Transfer (WPS)',
+            paymentStatus: 'Paid',
+            paymentDate: '2026-06-26'
+          },
+          {
+            employeeId: 'EMP-2026-005',
+            employeeName: 'Rajesh Subramanian Kumar',
+            department: 'Engineering & Operations',
+            position: 'Operator',
+            branch: 'NEOM Site Office',
+            project: 'PRJ-NEO-03',
+            employmentType: 'Contract',
+            basicSalary: 6500,
+            housingAllowance: 1625,
+            transportationAllowance: 1000,
+            communicationAllowance: 200,
+            foodAllowance: 500,
+            otherAllowances: 300,
+            overtime: 850,
+            bonuses: 0,
+            incentives: 0,
+            commissions: 0,
+            loanDeductions: 1250,
+            salaryAdvanceDeductions: 0,
+            gosi: 0,
+            taxes: 0,
+            otherDeductions: 0,
+            grossSalary: 10975,
+            netSalary: 9725,
+            paymentMethod: 'Bank Transfer (WPS)',
+            paymentStatus: 'Paid',
+            paymentDate: '2026-06-26'
+          }
+        ],
+        createdAt: '2026-06-20T08:00:00Z',
+        updatedAt: '2026-06-26T08:00:00Z'
+      }
+    ];
 
     // Seed database
     const seedData: DatabaseSchema = {
@@ -738,7 +887,9 @@ export class Database {
       tickets: seedTickets,
       auditLogs: seedAuditLogs,
       notifications: seedNotifications,
-      settings: defaultSettings
+      settings: defaultSettings,
+      payrollRuns: seedPayrollRuns,
+      requests: seedRequests
     };
 
     this.saveData(seedData);

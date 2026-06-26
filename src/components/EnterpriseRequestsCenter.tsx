@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Check,
   X,
   Search,
-  Filter,
   Plus,
   FileText,
   AlertCircle,
@@ -14,9 +13,6 @@ import {
   ShieldCheck,
   TrendingUp,
   UserCheck,
-  CornerDownRight,
-  MessageSquare,
-  Share2,
   Inbox,
   Layers,
   ChevronDown,
@@ -24,1213 +20,1208 @@ import {
   Clock,
   Briefcase,
   SlidersHorizontal,
-  ChevronRight,
-  MapPin,
   RefreshCw,
   Send,
-  Flag
+  Flag,
+  Download,
+  Printer,
+  Eye,
+  CreditCard,
+  Laptop,
+  Key,
+  Database,
+  CheckCircle,
+  XCircle,
+  Lock,
+  User
 } from 'lucide-react';
+import { EnterpriseRequest, ApprovalHistoryItem, Employee } from '../types';
 
-export interface ApprovalHistoryItem {
-  level: number;
-  levelName: string;
-  approverName: string;
-  action: 'Approved' | 'Rejected' | 'Returned' | 'Escalated' | 'Delegated';
-  date: string;
-  comment: string;
-}
-
-export interface PendingRequest {
-  id: string;
-  employeeName: string;
-  employeeId: string;
-  department: string;
-  branch: string;
-  jobTitle: string;
-  requestType:
-    | 'Leave Request'
-    | 'Attendance Adjustment'
-    | 'Overtime Request'
-    | 'Loan Request'
-    | 'Salary Advance'
-    | 'Business Trip'
-    | 'Equipment Request'
-    | 'Vehicle Request'
-    | 'Fuel Request'
-    | 'Maintenance Request'
-    | 'Recruitment Request'
-    | 'Training Request'
-    | 'Document Update'
-    | 'Employee Information Change'
-    | 'Contract Renewal'
-    | 'Resignation Request'
-    | 'Transfer Request'
-    | 'Promotion Request';
-  requestDate: string;
-  currentLevel: number; // 1 to 5
-  currentLevelName: string;
-  currentApprover: string;
-  status: 'Pending' | 'Approved' | 'Rejected' | 'Returned';
-  priority: 'Critical' | 'High' | 'Medium' | 'Low';
-  pendingDays: number;
-  slaLimitHours: number;
-  isFinancial: boolean;
-  valueSAR: number;
-  details: string;
-  history: ApprovalHistoryItem[];
-}
+export const REQUEST_CATEGORIES = {
+  hr: {
+    labelEn: 'HR Requests',
+    labelAr: 'طلبات الموارد البشرية',
+    color: 'blue',
+    types: [
+      'Leave Request', 'Emergency Leave', 'Sick Leave', 'Maternity Leave', 'Paternity Leave', 'Annual Leave',
+      'Exit/Re-entry Visa Request', 'Final Exit Request', 'Passport Release Request', 'Iqama Release Request',
+      'Employment Certificate Request', 'Salary Certificate Request', 'Experience Certificate Request',
+      'Employee Information Update', 'Personal Data Change', 'Bank Account Change', 'Transfer Request',
+      'Promotion Request', 'Resignation Request', 'Contract Renewal Request', 'Training Request', 'Recruitment Request'
+    ]
+  },
+  payroll: {
+    labelEn: 'Payroll Requests',
+    labelAr: 'طلبات الرواتب والأجور',
+    color: 'emerald',
+    types: [
+      'Salary Advance', 'Employee Loan', 'Loan Settlement', 'Loan Reschedule',
+      'Overtime Request', 'Bonus Request', 'Deduction Appeal', 'Expense Reimbursement'
+    ]
+  },
+  admin: {
+    labelEn: 'Administrative Requests',
+    labelAr: 'الطلبات الإدارية',
+    color: 'purple',
+    types: [
+      'Permission Request (Hourly Permission)', 'Late Arrival Justification', 'Early Departure Request',
+      'Attendance Adjustment', 'Missing Check-In', 'Missing Check-Out', 'Shift Change Request',
+      'Business Trip Request', 'Accommodation Request', 'Transportation Request'
+    ]
+  },
+  assets: {
+    labelEn: 'Assets & Equipment Requests',
+    labelAr: 'طلبات الأصول والمعدات',
+    color: 'orange',
+    types: [
+      'Asset Custody Request', 'Asset Return', 'Laptop Request', 'Mobile Phone Request', 'SIM Card Request',
+      'Vehicle Request', 'Fuel Request', 'Heavy Equipment Request', 'Maintenance Request', 'Spare Parts Request',
+      'Warehouse Material Request', 'PPE Request', 'Office Supplies Request'
+    ]
+  },
+  it: {
+    labelEn: 'IT Requests',
+    labelAr: 'طلبات الدعم التقني',
+    color: 'indigo',
+    types: [
+      'New User Account', 'Password Reset', 'Access Permission Request', 'Email Account Request',
+      'Software Installation', 'Hardware Support', 'Printer Support', 'Network Support'
+    ]
+  },
+  finance: {
+    labelEn: 'Finance Requests',
+    labelAr: 'الطلبات المالية',
+    color: 'rose',
+    types: [
+      'Purchase Request', 'Purchase Requisition', 'Petty Cash Request', 'Vendor Payment Request',
+      'Invoice Approval', 'Budget Transfer Request'
+    ]
+  }
+};
 
 interface EnterpriseRequestsCenterProps {
   isRtl: boolean;
-  employees: any[];
+  employees: Employee[];
   onAddNotification?: (title: string, message: string, type: 'info' | 'success' | 'warning', module: string) => void;
 }
 
 export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotification }: EnterpriseRequestsCenterProps) {
-  // Initial list of 18 pending requests matching all requested types!
-  const [requests, setRequests] = useState<PendingRequest[]>([
-    {
-      id: 'REQ-2026-101',
-      employeeName: 'Rajesh Subramanian Kumar',
-      employeeId: 'EMP-2026-005',
-      department: 'Engineering & Operations',
-      branch: 'NEOM Site Office',
-      jobTitle: 'Heavy Excavator Operator',
-      requestType: 'Leave Request',
-      requestDate: '2026-06-20',
-      currentLevel: 3,
-      currentLevelName: 'Level 3 – Human Resources Department',
-      currentApprover: 'Sarah Khalid Al-Ghamdi (HR Mgr)',
-      status: 'Pending',
-      priority: 'High',
-      pendingDays: 5,
-      slaLimitHours: 48,
-      isFinancial: false,
-      valueSAR: 0,
-      details: 'Requesting 30 days of annual vacation starting Sep 1st to visit family in India.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Al-Dossary', action: 'Approved', date: '2026-06-21', comment: 'Operations schedule permits. Recommended.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-22', comment: 'Approved on operational ground.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-102',
-      employeeName: 'Faisal Ahmed Al-Harbi',
-      employeeId: 'EMP-2026-004',
-      department: 'Maintenance & Service',
-      branch: 'Riyadh (HQ)',
-      jobTitle: 'Senior Mechanic',
-      requestType: 'Attendance Adjustment',
-      requestDate: '2026-06-24',
-      currentLevel: 1,
-      currentLevelName: 'Level 1 – Direct Supervisor',
-      currentApprover: 'Ahmed Faraj Al-Dossary (Supervisor)',
-      status: 'Pending',
-      priority: 'Medium',
-      pendingDays: 1,
-      slaLimitHours: 24,
-      isFinancial: false,
-      valueSAR: 0,
-      details: 'Forgot to clock in on morning shift due to urgent emergency repair call-out at Site B.',
-      history: []
-    },
-    {
-      id: 'REQ-2026-103',
-      employeeName: 'Sajid Mahmood',
-      employeeId: 'EMP-2026-008',
-      department: 'Construction Operations',
-      branch: 'Jeddah',
-      jobTitle: 'Welder',
-      requestType: 'Overtime Request',
-      requestDate: '2026-06-21',
-      currentLevel: 2,
-      currentLevelName: 'Level 2 – Department Manager',
-      currentApprover: 'Bandar Al-Ghamdi (Project Manager)',
-      status: 'Pending',
-      priority: 'Low',
-      pendingDays: 4,
-      slaLimitHours: 48,
-      isFinancial: true,
-      valueSAR: 1450,
-      details: 'Overtime compensation request for 12 hours of night shift concrete joint reinforcement welding.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Al-Dossary', action: 'Approved', date: '2026-06-22', comment: 'Welding completed under urgent deadline. Approved.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-104',
-      employeeName: 'Yousef Al-Otaibi',
-      employeeId: 'EMP-2026-010',
-      department: 'Fleet Maintenance',
-      branch: 'Dammam',
-      jobTitle: 'Safety Inspector',
-      requestType: 'Loan Request',
-      requestDate: '2026-06-18',
-      currentLevel: 4,
-      currentLevelName: 'Level 4 – Finance / Accountant',
-      currentApprover: 'Mohammad Salem Al-Qahtani (Finance Dir)',
-      status: 'Pending',
-      priority: 'Critical',
-      pendingDays: 7,
-      slaLimitHours: 48,
-      isFinancial: true,
-      valueSAR: 45000,
-      details: 'Personal medical advance loan request with automatic monthly salary deductions of 3,750 SAR.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Tariq Mahmood', action: 'Approved', date: '2026-06-19', comment: 'Recommended on compassionate medical grounds.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-20', comment: 'Supports employee stability.' },
-        { level: 3, levelName: 'Level 3 – Human Resources Department', approverName: 'Sarah Khalid Al-Ghamdi', action: 'Approved', date: '2026-06-21', comment: 'Balances are clear. Forwarding to Finance.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-105',
-      employeeName: 'Adnan Al-Shehri',
-      employeeId: 'EMP-2026-009',
-      department: 'Engineering & Operations',
-      branch: 'Riyadh (HQ)',
-      jobTitle: 'Lead Civil Engineer',
-      requestType: 'Salary Advance',
-      requestDate: '2026-06-23',
-      currentLevel: 3,
-      currentLevelName: 'Level 3 – Human Resources Department',
-      currentApprover: 'Sarah Khalid Al-Ghamdi (HR Mgr)',
-      status: 'Pending',
-      priority: 'Medium',
-      pendingDays: 2,
-      slaLimitHours: 48,
-      isFinancial: true,
-      valueSAR: 8000,
-      details: 'Advance of 50% of monthly basic salary due to urgent housing lease payment.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-24', comment: 'Approved.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-24', comment: 'Approved.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-106',
-      employeeName: 'John Michael Doe',
-      employeeId: 'EMP-2026-007',
-      department: 'Engineering & Operations',
-      branch: 'NEOM Site Office',
-      jobTitle: 'Lead Engineer',
-      requestType: 'Business Trip',
-      requestDate: '2026-06-22',
-      currentLevel: 5,
-      currentLevelName: 'Level 5 – General Manager (Final Approval)',
-      currentApprover: 'Tariq Abdulaziz Al-Otaibi (General Manager)',
-      status: 'Pending',
-      priority: 'High',
-      pendingDays: 3,
-      slaLimitHours: 72,
-      isFinancial: true,
-      valueSAR: 3500,
-      details: 'Business trip delegation to Riyadh HQ for NEOM structural board reviews and compliance audit.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Faraj Al-Dossary', action: 'Approved', date: '2026-06-22', comment: 'Crucial presentation.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-23', comment: 'Approved.' },
-        { level: 3, levelName: 'Level 3 – Human Resources Department', approverName: 'Sarah Khalid Al-Ghamdi', action: 'Approved', date: '2026-06-24', comment: 'Flights and accommodation budget verified.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-107',
-      employeeName: 'Tariq Mahmood',
-      employeeId: 'EMP-2026-012',
-      department: 'Fleet Maintenance',
-      branch: 'NEOM Site Office',
-      jobTitle: 'Fleet Supervisor',
-      requestType: 'Equipment Request',
-      requestDate: '2026-06-25',
-      currentLevel: 1,
-      currentLevelName: 'Level 1 – Direct Supervisor',
-      currentApprover: 'Ahmed Faraj Al-Dossary (Supervisor)',
-      status: 'Pending',
-      priority: 'Medium',
-      pendingDays: 0,
-      slaLimitHours: 24,
-      isFinancial: false,
-      valueSAR: 0,
-      details: 'Requesting allocation of 1x Leica TS16 High-Precision Robotic Total Station for Site C excavation plotting.',
-      history: []
-    },
-    {
-      id: 'REQ-2026-108',
-      employeeName: 'Rajesh Subramanian Kumar',
-      employeeId: 'EMP-2026-005',
-      department: 'Engineering & Operations',
-      branch: 'NEOM Site Office',
-      jobTitle: 'Heavy Excavator Operator',
-      requestType: 'Vehicle Request',
-      requestDate: '2026-06-24',
-      currentLevel: 2,
-      currentLevelName: 'Level 2 – Department Manager',
-      currentApprover: 'John Michael Doe (Lead Engineer)',
-      status: 'Pending',
-      priority: 'High',
-      pendingDays: 1,
-      slaLimitHours: 48,
-      isFinancial: false,
-      valueSAR: 0,
-      details: 'Requesting 4x4 pickup truck assignment for remote site survey and shift rotation transport.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Al-Dossary', action: 'Approved', date: '2026-06-24', comment: 'Operator requires mobility.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-109',
-      employeeName: 'Bandar Al-Ghamdi',
-      employeeId: 'EMP-2026-011',
-      department: 'Engineering & Operations',
-      branch: 'Riyadh (HQ)',
-      jobTitle: 'Project Manager',
-      requestType: 'Fuel Request',
-      requestDate: '2026-06-25',
-      currentLevel: 1,
-      currentLevelName: 'Level 1 – Direct Supervisor',
-      currentApprover: 'Tariq Abdulaziz Al-Otaibi (Supervisor)',
-      status: 'Pending',
-      priority: 'High',
-      pendingDays: 0,
-      slaLimitHours: 24,
-      isFinancial: true,
-      valueSAR: 12400,
-      details: 'Diesel fuel replenishment dispatch (5,000 Liters) for heavy generators operating at Riyadh Metro construction Sector 4.',
-      history: []
-    },
-    {
-      id: 'REQ-2026-110',
-      employeeName: 'Faisal Ahmed Al-Harbi',
-      employeeId: 'EMP-2026-004',
-      department: 'Maintenance & Service',
-      branch: 'Riyadh (HQ)',
-      jobTitle: 'Senior Mechanic',
-      requestType: 'Maintenance Request',
-      requestDate: '2026-06-23',
-      currentLevel: 2,
-      currentLevelName: 'Level 2 – Department Manager',
-      currentApprover: 'Tariq Abdulaziz Al-Otaibi (Manager)',
-      status: 'Pending',
-      priority: 'Critical',
-      pendingDays: 2,
-      slaLimitHours: 24,
-      isFinancial: true,
-      valueSAR: 8400,
-      details: 'Emergency spare part procurement & maintenance of main boom telescoping hydraulic cylinders for Liebherr Crane LTM 1050.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Faraj Al-Dossary', action: 'Approved', date: '2026-06-23', comment: 'Crane out-of-service. Priority 1.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-111',
-      employeeName: 'Sarah Khalid Al-Ghamdi',
-      employeeId: 'EMP-2026-002',
-      department: 'Human Resources',
-      branch: 'Riyadh (HQ)',
-      jobTitle: 'Manager',
-      requestType: 'Recruitment Request',
-      requestDate: '2026-06-21',
-      currentLevel: 5,
-      currentLevelName: 'Level 5 – General Manager (Final Approval)',
-      currentApprover: 'Tariq Abdulaziz Al-Otaibi (General Manager)',
-      status: 'Pending',
-      priority: 'Medium',
-      pendingDays: 4,
-      slaLimitHours: 72,
-      isFinancial: true,
-      valueSAR: 15000,
-      details: 'Urgent hiring recruitment post for 3x certified concrete lab technicians and 2x senior safety inspectors for Riyadh Metro project.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-21', comment: 'Workforce shortage critical.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-22', comment: 'Approved.' },
-        { level: 3, levelName: 'Level 3 – Human Resources Department', approverName: 'Sarah Khalid Al-Ghamdi', action: 'Approved', date: '2026-06-23', comment: 'Budgets and headcount vacancy verified.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-112',
-      employeeName: 'Faisal Ahmed Al-Harbi',
-      employeeId: 'EMP-2026-004',
-      department: 'Maintenance & Service',
-      branch: 'Riyadh (HQ)',
-      jobTitle: 'Senior Mechanic',
-      requestType: 'Training Request',
-      requestDate: '2026-06-24',
-      currentLevel: 2,
-      currentLevelName: 'Level 2 – Department Manager',
-      currentApprover: 'Tariq Abdulaziz Al-Otaibi (Manager)',
-      status: 'Pending',
-      priority: 'Low',
-      pendingDays: 1,
-      slaLimitHours: 48,
-      isFinancial: true,
-      valueSAR: 2200,
-      details: 'Enrolment request for high-capacity hydraulic troubleshooting training certification at Liebherr Training Center.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Faraj Al-Dossary', action: 'Approved', date: '2026-06-24', comment: 'Will greatly improve repair response.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-113',
-      employeeName: 'Rajesh Subramanian Kumar',
-      employeeId: 'EMP-2026-005',
-      department: 'Engineering & Operations',
-      branch: 'NEOM Site Office',
-      jobTitle: 'Heavy Excavator Operator',
-      requestType: 'Document Update',
-      requestDate: '2026-06-25',
-      currentLevel: 1,
-      currentLevelName: 'Level 1 – Direct Supervisor',
-      currentApprover: 'Ahmed Al-Dossary (Supervisor)',
-      status: 'Pending',
-      priority: 'High',
-      pendingDays: 0,
-      slaLimitHours: 24,
-      isFinancial: false,
-      valueSAR: 0,
-      details: 'Submission and verification of newly renewed Saudi driving license (Heavy Duty, Exp: 2036).',
-      history: []
-    },
-    {
-      id: 'REQ-2026-114',
-      employeeName: 'Sajid Mahmood',
-      employeeId: 'EMP-2026-008',
-      department: 'Construction Operations',
-      branch: 'Jeddah',
-      jobTitle: 'Welder',
-      requestType: 'Employee Information Change',
-      requestDate: '2026-06-25',
-      currentLevel: 1,
-      currentLevelName: 'Level 1 – Direct Supervisor',
-      currentApprover: 'Ahmed Al-Dossary (Supervisor)',
-      status: 'Pending',
-      priority: 'Low',
-      pendingDays: 0,
-      slaLimitHours: 24,
-      isFinancial: false,
-      valueSAR: 0,
-      details: 'Updating mobile number to +966 59 123 9988 and changing primary emergency contact details.',
-      history: []
-    },
-    {
-      id: 'REQ-2026-115',
-      employeeName: 'Rajesh Subramanian Kumar',
-      employeeId: 'EMP-2026-005',
-      department: 'Engineering & Operations',
-      branch: 'NEOM Site Office',
-      jobTitle: 'Heavy Excavator Operator',
-      requestType: 'Contract Renewal',
-      requestDate: '2026-06-20',
-      currentLevel: 3,
-      currentLevelName: 'Level 3 – Human Resources Department',
-      currentApprover: 'Sarah Khalid Al-Ghamdi (HR Mgr)',
-      status: 'Pending',
-      priority: 'High',
-      pendingDays: 5,
-      slaLimitHours: 48,
-      isFinancial: true,
-      valueSAR: 78000,
-      details: 'Request for 1-year employment contract renewal with proposed 5% adjustment for outstanding performance index.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Al-Dossary', action: 'Approved', date: '2026-06-21', comment: 'Highly recommended. Top operator at site.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-22', comment: 'Approved on project budget.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-116',
-      employeeName: 'John Michael Doe',
-      employeeId: 'EMP-2026-007',
-      department: 'Engineering & Operations',
-      branch: 'NEOM Site Office',
-      jobTitle: 'Lead Engineer',
-      requestType: 'Resignation Request',
-      requestDate: '2026-06-19',
-      currentLevel: 3,
-      currentLevelName: 'Level 3 – Human Resources Department',
-      currentApprover: 'Sarah Khalid Al-Ghamdi (HR Mgr)',
-      status: 'Pending',
-      priority: 'Critical',
-      pendingDays: 6,
-      slaLimitHours: 72,
-      isFinancial: false,
-      valueSAR: 0,
-      details: 'Official 30-day notice of resignation due to relocation opportunities in home country (UK).',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Al-Dossary', action: 'Approved', date: '2026-06-20', comment: 'Regretfully recommended. Need replacement search immediately.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-21', comment: 'Initiated exit workflow.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-117',
-      employeeName: 'Faisal Ahmed Al-Harbi',
-      employeeId: 'EMP-2026-004',
-      department: 'Maintenance & Service',
-      branch: 'Riyadh (HQ)',
-      jobTitle: 'Senior Mechanic',
-      requestType: 'Transfer Request',
-      requestDate: '2026-06-22',
-      currentLevel: 3,
-      currentLevelName: 'Level 3 – Human Resources Department',
-      currentApprover: 'Sarah Khalid Al-Ghamdi (HR Mgr)',
-      status: 'Pending',
-      priority: 'Medium',
-      pendingDays: 3,
-      slaLimitHours: 48,
-      isFinancial: false,
-      valueSAR: 0,
-      details: 'Request to transfer permanently from Riyadh HQ Workshop to NEOM Site Support Depot due to site workload demands.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Ahmed Faraj Al-Dossary', action: 'Approved', date: '2026-06-23', comment: 'Highly useful transfer. Approved.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-23', comment: 'Fills structural vacancy at NEOM depot.' }
-      ]
-    },
-    {
-      id: 'REQ-2026-118',
-      employeeName: 'Ahmed Faraj Al-Dossary',
-      employeeId: 'EMP-2026-006',
-      department: 'Engineering & Operations',
-      branch: 'Riyadh (HQ)',
-      jobTitle: 'Supervisor',
-      requestType: 'Promotion Request',
-      requestDate: '2026-06-17',
-      currentLevel: 5,
-      currentLevelName: 'Level 5 – General Manager (Final Approval)',
-      currentApprover: 'Tariq Abdulaziz Al-Otaibi (General Manager)',
-      status: 'Pending',
-      priority: 'High',
-      pendingDays: 8,
-      slaLimitHours: 72,
-      isFinancial: true,
-      valueSAR: 4500,
-      details: 'Proposed promotion to Operations Assistant Director, citing 10 years of site safety management achievements.',
-      history: [
-        { level: 1, levelName: 'Level 1 – Direct Supervisor', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-18', comment: 'Outstanding track record.' },
-        { level: 2, levelName: 'Level 2 – Department Manager', approverName: 'Tariq Abdulaziz Al-Otaibi', action: 'Approved', date: '2026-06-19', comment: 'Strong recommendation.' },
-        { level: 3, levelName: 'Level 3 – Human Resources Department', approverName: 'Sarah Khalid Al-Ghamdi', action: 'Approved', date: '2026-06-21', comment: 'Organization structure allows.' }
-      ]
-    }
-  ]);
+  const [requests, setRequests] = useState<EnterpriseRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // Approved/Rejected Today state counters (resets on reload, or tracking actions)
-  const [approvedToday, setApprovedToday] = useState(3);
-  const [rejectedToday, setRejectedToday] = useState(1);
+  // Dashboard Tab / Role Perspective Switching State
+  // 'all' | 'employee' | 'l1' | 'l2' | 'l3' | 'l4' | 'l5' | 'reports'
+  const [activeRolePerspective, setActiveRolePerspective] = useState<string>('all');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(employees[4]?.id || 'EMP-2026-005'); // Defaults to Rajesh
 
-  // Filter States
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterDept, setFilterDept] = useState('All');
-  const [filterBranch, setFilterBranch] = useState('All');
-  const [filterType, setFilterType] = useState('All');
-  const [filterStage, setFilterStage] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('Pending'); // Defaults to show Pending
+  const [filterCategory, setFilterCategory] = useState('All');
   const [filterPriority, setFilterPriority] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('All');
 
-  // Details Modal State
-  const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
+  // New Request Form State
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [formCategory, setFormCategory] = useState<keyof typeof REQUEST_CATEGORIES>('hr');
+  const [formType, setFormType] = useState('Leave Request');
+  const [formEmployeeId, setFormEmployeeId] = useState(employees[4]?.id || 'EMP-2026-005');
+  const [formPriority, setFormPriority] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('Medium');
+  const [formIsFinancial, setFormIsFinancial] = useState(false);
+  const [formValueSAR, setFormValueSAR] = useState(0);
+  const [formDetails, setFormDetails] = useState('');
+  
+  // Custom Form Fields (saved under formData)
+  const [customLeaveType, setCustomLeaveType] = useState('Annual Leave');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [customAmount, setCustomAmount] = useState('');
+  const [customInstallments, setCustomInstallments] = useState('');
+  const [customAssetName, setCustomAssetName] = useState('');
+  const [customTargetDate, setCustomTargetDate] = useState('');
+  const [customUsername, setCustomUsername] = useState('');
+  const [customSystem, setCustomSystem] = useState('');
+
+  // Interactive Operations / Approval Modal State
+  const [selectedRequest, setSelectedRequest] = useState<EnterpriseRequest | null>(null);
   const [modalAction, setModalAction] = useState<'view' | 'approve' | 'reject' | 'comment' | 'escalate' | 'delegate'>('view');
   const [commentText, setCommentText] = useState('');
   const [delegationTarget, setDelegationTarget] = useState('');
+  const [signatureType, setSignatureType] = useState<'type' | 'draw'>('type');
+  const [electronicSignature, setElectronicSignature] = useState('');
 
-  // 1. Calculations & Metrics
-  const totalPending = requests.filter((r) => r.status === 'Pending').length;
-  
-  const awaitingSupervisor = requests.filter((r) => r.status === 'Pending' && r.currentLevel === 1).length;
-  const awaitingManager = requests.filter((r) => r.status === 'Pending' && r.currentLevel === 2).length;
-  const awaitingHR = requests.filter((r) => r.status === 'Pending' && r.currentLevel === 3).length;
-  const awaitingFinance = requests.filter((r) => r.status === 'Pending' && r.currentLevel === 4).length;
-  const awaitingExecutive = requests.filter((r) => r.status === 'Pending' && r.currentLevel === 5).length;
+  // Fetch Requests on Mount
+  useEffect(() => {
+    fetchRequests();
+  }, []);
 
-  const overdueRequests = requests.filter((r) => r.status === 'Pending' && r.pendingDays * 24 > r.slaLimitHours).length;
-
-  // Department unique options
-  const departments = ['All', ...Array.from(new Set(requests.map((r) => r.department)))];
-  // Branches
-  const branches = ['All', ...Array.from(new Set(requests.map((r) => r.branch)))];
-  // Request Types
-  const requestTypes = ['All', ...Array.from(new Set(requests.map((r) => r.requestType)))];
-  // Stages
-  const stages = [
-    { value: 'All', label: isRtl ? 'جميع المراحل' : 'All Stages' },
-    { value: '1', label: isRtl ? 'المشرف المباشر (مستوى 1)' : 'Direct Supervisor (L1)' },
-    { value: '2', label: isRtl ? 'مدير القسم (مستوى 2)' : 'Dept Manager (L2)' },
-    { value: '3', label: isRtl ? 'الموارد البشرية (مستوى 3)' : 'HR Department (L3)' },
-    { value: '4', label: isRtl ? 'الشؤون المالية (مستوى 4)' : 'Finance/Accountant (L4)' },
-    { value: '5', label: isRtl ? 'المدير العام (مستوى 5)' : 'General Manager (L5)' }
-  ];
-
-  // Filter logic
-  const filteredRequests = requests.filter((r) => {
-    const matchesSearch =
-      r.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.details.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesDept = filterDept === 'All' || r.department === filterDept;
-    const matchesBranch = filterBranch === 'All' || r.branch === filterBranch;
-    const matchesType = filterType === 'All' || r.requestType === filterType;
-    const matchesStage = filterStage === 'All' || r.currentLevel.toString() === filterStage;
-    const matchesStatus = filterStatus === 'All' || r.status === filterStatus;
-    const matchesPriority = filterPriority === 'All' || r.priority === filterPriority;
-
-    return (
-      matchesSearch &&
-      matchesDept &&
-      matchesBranch &&
-      matchesType &&
-      matchesStage &&
-      matchesStatus &&
-      matchesPriority
-    );
-  });
-
-  // Action Handlers
-  const handleApprove = (reqId: string, comment: string) => {
-    let notifyTitle = '';
-    let notifyMsg = '';
-
-    setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id !== reqId) return r;
-
-        const nextLevel = r.currentLevel + 1;
-        const isCurrentlyFinancial = r.isFinancial;
-
-        // Routing Rules
-        let finalLevel = nextLevel;
-        let newLevelName = '';
-        let newApprover = '';
-
-        // If nextLevel is 4 but request is NOT financial, skip L4 and go to L5
-        if (nextLevel === 4 && !isCurrentlyFinancial) {
-          finalLevel = 5;
-        }
-
-        const dateStr = new Date().toISOString().split('T')[0];
-        const newHistoryItem: ApprovalHistoryItem = {
-          level: r.currentLevel,
-          levelName: r.currentLevelName,
-          approverName: r.currentApprover,
-          action: 'Approved',
-          date: dateStr,
-          comment: comment || (isRtl ? 'تمت الموافقة والتوصية.' : 'Approved and forwarded.')
-        };
-
-        const updatedHistory = [...r.history, newHistoryItem];
-
-        if (finalLevel > 5) {
-          // Fully approved!
-          setApprovedToday((prev) => prev + 1);
-          notifyTitle = isRtl ? 'اعتماد نهائي للطلب' : 'Request Fully Approved';
-          notifyMsg = isRtl
-            ? `تم اعتماد طلب الموظف ${r.employeeName} (${r.requestType}) بشكل نهائي.`
-            : `Request (${r.requestType}) for ${r.employeeName} has been fully approved by General Manager.`;
-
-          return {
-            ...r,
-            status: 'Approved',
-            currentLevel: 5,
-            currentApprover: isRtl ? 'منتهي - معتمد' : 'Completed - Approved',
-            history: updatedHistory
-          };
-        } else {
-          // Move to next stage
-          if (finalLevel === 2) {
-            newLevelName = 'Level 2 – Department Manager';
-            newApprover = isRtl ? 'مدير القسم الإداري' : 'Department Manager';
-          } else if (finalLevel === 3) {
-            newLevelName = 'Level 3 – Human Resources Department';
-            newApprover = 'Sarah Khalid Al-Ghamdi (HR Mgr)';
-          } else if (finalLevel === 4) {
-            newLevelName = 'Level 4 – Finance / Accountant';
-            newApprover = 'Mohammad Salem Al-Qahtani (Finance Dir)';
-          } else if (finalLevel === 5) {
-            newLevelName = 'Level 5 – General Manager (Final Approval)';
-            newApprover = 'Tariq Abdulaziz Al-Otaibi (General Manager)';
-          }
-
-          notifyTitle = isRtl ? 'تقدم مسار الاعتماد' : 'Workflow Advanced';
-          notifyMsg = isRtl
-            ? `تم تمرير طلب الموظف ${r.employeeName} إلى ${newLevelName}.`
-            : `Request for ${r.employeeName} moved to ${newLevelName} for review.`;
-
-          return {
-            ...r,
-            currentLevel: finalLevel,
-            currentLevelName: newLevelName,
-            currentApprover: newApprover,
-            history: updatedHistory,
-            pendingDays: 0 // resets pending timer for new SLA stage
-          };
-        }
-      })
-    );
-
-    if (onAddNotification) {
-      onAddNotification(notifyTitle, notifyMsg, 'success', 'Approvals');
+  const fetchRequests = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/requests');
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(data);
+      } else {
+        setErrorMsg('Failed to load corporate requests from backend API.');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Server connection issue while retrieving requests.');
+    } finally {
+      setIsLoading(false);
     }
-    setCommentText('');
-    setSelectedRequest(null);
   };
 
-  const handleReject = (reqId: string, comment: string) => {
-    setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id !== reqId) return r;
+  // Submit / Draft New Request
+  const handleCreateRequest = async (isDraft: boolean) => {
+    const selectedEmp = employees.find(e => e.id === formEmployeeId) || employees[0];
+    
+    // Construct Form Data
+    const formData: Record<string, any> = {};
+    if (formCategory === 'hr' && (formType.includes('Leave') || formType.includes('Exit'))) {
+      formData.leaveType = customLeaveType;
+      formData.startDate = customStartDate;
+      formData.endDate = customEndDate;
+    } else if (formCategory === 'payroll' || formCategory === 'finance') {
+      formData.amount = Number(customAmount) || 0;
+      formData.installments = Number(customInstallments) || 0;
+    } else if (formCategory === 'assets') {
+      formData.assetName = customAssetName;
+      formData.targetDate = customTargetDate;
+    } else if (formCategory === 'it') {
+      formData.username = customUsername;
+      formData.system = customSystem;
+    }
 
-        const dateStr = new Date().toISOString().split('T')[0];
-        const newHistoryItem: ApprovalHistoryItem = {
-          level: r.currentLevel,
-          levelName: r.currentLevelName,
-          approverName: r.currentApprover,
-          action: 'Rejected',
-          date: dateStr,
-          comment: comment || (isRtl ? 'مرفوض بسبب عدم التوافق.' : 'Rejected due to non-compliance.')
-        };
+    const bodyPayload = {
+      employeeId: selectedEmp.id,
+      employeeName: selectedEmp.fullName,
+      department: selectedEmp.department,
+      branch: selectedEmp.projectAssignment === 'HQ' ? 'Riyadh (HQ)' : 'Remote Project Site',
+      jobTitle: selectedEmp.position,
+      category: REQUEST_CATEGORIES[formCategory].labelEn,
+      requestType: formType,
+      priority: formPriority,
+      isFinancial: formIsFinancial || formCategory === 'finance' || formCategory === 'payroll',
+      valueSAR: formValueSAR || Number(customAmount) || 0,
+      details: formDetails,
+      formData,
+      status: isDraft ? 'Draft' : 'Pending Approval'
+    };
 
-        setRejectedToday((prev) => prev + 1);
+    try {
+      const res = await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload)
+      });
 
+      if (res.ok) {
         if (onAddNotification) {
           onAddNotification(
-            isRtl ? 'تم رفض الطلب' : 'Request Rejected',
-            isRtl
-              ? `تم رفض طلب ${r.employeeName} (${r.requestType}) من قِبل ${r.currentApprover}.`
-              : `Request (${r.requestType}) for ${r.employeeName} has been rejected by ${r.currentApprover}.`,
-            'warning',
-            'Approvals'
+            isDraft ? 'Draft Saved Successfully' : 'Request Submitted',
+            `Your ${formType} request has been successfully processed in the corporate ledger.`,
+            'success',
+            'Requests'
           );
         }
-
-        return {
-          ...r,
-          status: 'Rejected',
-          history: [...r.history, newHistoryItem]
-        };
-      })
-    );
-    setCommentText('');
-    setSelectedRequest(null);
+        setIsCreateOpen(false);
+        resetForm();
+        fetchRequests();
+      } else {
+        alert('Failed to save request. Please verify inputs.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error connecting to backend API.');
+    }
   };
 
-  const handleEscalate = (reqId: string, comment: string) => {
-    setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id !== reqId) return r;
+  // Perform Approval Workflow Action
+  const handleWorkflowAction = async (reqId: string, actionType: string) => {
+    const currentActiveEmp = employees.find(e => e.id === selectedEmployeeId) || employees[0];
+    
+    const bodyPayload = {
+      approverId: currentActiveEmp.id,
+      approverName: currentActiveEmp.fullName,
+      role: currentActiveEmp.position,
+      action: actionType,
+      comment: commentText,
+      delegateTo: delegationTarget,
+      signature: electronicSignature || `Signed by ${currentActiveEmp.fullName}`
+    };
 
-        const dateStr = new Date().toISOString().split('T')[0];
-        const newHistoryItem: ApprovalHistoryItem = {
-          level: r.currentLevel,
-          levelName: r.currentLevelName,
-          approverName: r.currentApprover,
-          action: 'Escalated',
-          date: dateStr,
-          comment: comment || (isRtl ? 'تم تصعيد الطلب بشكل عاجل للإدارة العليا.' : 'Request escalated to higher management.')
-        };
+    try {
+      const res = await fetch(`/api/requests/${reqId}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload)
+      });
 
+      if (res.ok) {
         if (onAddNotification) {
           onAddNotification(
-            isRtl ? 'تصعيد طارئ للطلب' : 'Urgent Request Escalation',
-            isRtl
-              ? `تم تصعيد طلب ${r.employeeName} بشكل طارئ بسبب انتهاء مهلة الـ SLA.`
-              : `Request for ${r.employeeName} has been escalated to executive office due to SLA expiration.`,
+            'Workflow Decision Locked',
+            `Request ${reqId} successfully updated with action: ${actionType.toUpperCase()}.`,
             'info',
-            'Approvals'
+            'Requests'
           );
         }
-
-        return {
-          ...r,
-          priority: 'Critical',
-          history: [...r.history, newHistoryItem]
-        };
-      })
-    );
-    setCommentText('');
-    setSelectedRequest(null);
+        setSelectedRequest(null);
+        setCommentText('');
+        setDelegationTarget('');
+        setElectronicSignature('');
+        fetchRequests();
+      } else {
+        alert('Workflow action failed.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Server connection error.');
+    }
   };
 
-  const handleDelegate = (reqId: string, targetName: string, comment: string) => {
-    if (!targetName) return;
-
-    setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id !== reqId) return r;
-
-        const dateStr = new Date().toISOString().split('T')[0];
-        const newHistoryItem: ApprovalHistoryItem = {
-          level: r.currentLevel,
-          levelName: r.currentLevelName,
-          approverName: r.currentApprover,
-          action: 'Delegated',
-          date: dateStr,
-          comment: comment || `${isRtl ? 'تفويض الصلاحية لـ' : 'Delegated review authority to'} ${targetName}.`
-        };
-
-        if (onAddNotification) {
-          onAddNotification(
-            isRtl ? 'تفويض مراجعة الطلب' : 'Request Delegated',
-            isRtl
-              ? `تم تفويض صلاحية مراجعة طلب ${r.employeeName} إلى ${targetName}.`
-              : `Review authority for ${r.employeeName} request was delegated to ${targetName}.`,
-            'info',
-            'Approvals'
-          );
-        }
-
-        return {
-          ...r,
-          currentApprover: targetName,
-          history: [...r.history, newHistoryItem]
-        };
-      })
-    );
-    setCommentText('');
-    setDelegationTarget('');
-    setSelectedRequest(null);
+  const resetForm = () => {
+    setFormCategory('hr');
+    setFormType('Leave Request');
+    setFormPriority('Medium');
+    setFormIsFinancial(false);
+    setFormValueSAR(0);
+    setFormDetails('');
+    setCustomLeaveType('Annual Leave');
+    setCustomStartDate('');
+    setCustomEndDate('');
+    setCustomAmount('');
+    setCustomInstallments('');
+    setCustomAssetName('');
+    setCustomTargetDate('');
+    setCustomUsername('');
+    setCustomSystem('');
   };
 
-  const handleReturn = (reqId: string, comment: string) => {
-    setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id !== reqId) return r;
-
-        const dateStr = new Date().toISOString().split('T')[0];
-        const newHistoryItem: ApprovalHistoryItem = {
-          level: r.currentLevel,
-          levelName: r.currentLevelName,
-          approverName: r.currentApprover,
-          action: 'Returned',
-          date: dateStr,
-          comment: comment || (isRtl ? 'تمت إعادة الطلب للموظف للتعديل واستكمال البيانات.' : 'Returned to requester for modification.')
-        };
-
-        if (onAddNotification) {
-          onAddNotification(
-            isRtl ? 'إعادة الطلب للموظف' : 'Request Returned to Requester',
-            isRtl
-              ? `تمت إعادة طلب ${r.employeeName} للمراجعة واستكمال المرفقات.`
-              : `Request for ${r.employeeName} has been returned to correction status.`,
-            'info',
-            'Approvals'
-          );
-        }
-
-        return {
-          ...r,
-          status: 'Returned',
-          currentLevel: 1, // Reset level to supervisor upon modification re-submission
-          currentLevelName: 'Level 1 – Direct Supervisor',
-          history: [...r.history, newHistoryItem]
-        };
-      })
-    );
-    setCommentText('');
-    setSelectedRequest(null);
+  // Role Perspective Filters
+  const getRoleFilteredRequests = () => {
+    return requests.filter(req => {
+      // 1. Role-specific stages
+      if (activeRolePerspective === 'employee') {
+        return req.employeeId === selectedEmployeeId;
+      }
+      if (activeRolePerspective === 'l1') {
+        return req.currentLevel === 1 && req.status === 'Pending Approval';
+      }
+      if (activeRolePerspective === 'l2') {
+        return req.currentLevel === 2 && req.status === 'Pending Approval';
+      }
+      if (activeRolePerspective === 'l3') {
+        return req.currentLevel === 3 && req.status === 'Pending Approval';
+      }
+      if (activeRolePerspective === 'l4') {
+        return req.currentLevel === 4 && req.status === 'Pending Approval';
+      }
+      if (activeRolePerspective === 'l5') {
+        return req.currentLevel === 5 && req.status === 'Pending Approval';
+      }
+      return true; // 'all' and others see everything
+    });
   };
 
-  // Helper styles
+  // General Filter Operations on top of Role Perspective
+  const getFullyFilteredRequests = () => {
+    return getRoleFilteredRequests().filter(req => {
+      const matchesSearch =
+        req.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.requestType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.details.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesCategory =
+        filterCategory === 'All' || req.category === filterCategory;
+
+      const matchesPriority =
+        filterPriority === 'All' || req.priority === filterPriority;
+
+      const matchesStatus =
+        filterStatus === 'All' || req.status === filterStatus;
+
+      return matchesSearch && matchesCategory && matchesPriority && matchesStatus;
+    });
+  };
+
+  const currentFilteredList = getFullyFilteredRequests();
+
+  // Export Filtered Requests to CSV (Excel Ready)
+  const handleExportToCSV = () => {
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'Request Number,Employee Name,Request Type,Category,Status,Priority,Value (SAR),Submission Date,Last Action\n';
+    
+    currentFilteredList.forEach(r => {
+      csvContent += `"${r.id}","${r.employeeName}","${r.requestType}","${r.category}","${r.status}","${r.priority}",${r.valueSAR},"${r.submissionDate}","${r.lastActionDate}"\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Enterprise_Requests_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Trigger Print PDF View of Filtered Requests
+  const handlePrintPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const rowsHtml = currentFilteredList.map(r => `
+      <tr style="border-bottom: 1px solid #ddd;">
+        <td style="padding: 8px; font-family: monospace;">${r.id}</td>
+        <td style="padding: 8px;">${r.employeeName}</td>
+        <td style="padding: 8px;"><strong>${r.requestType}</strong></td>
+        <td style="padding: 8px;">${r.category}</td>
+        <td style="padding: 8px;">${r.status}</td>
+        <td style="padding: 8px;">${r.priority}</td>
+        <td style="padding: 8px; font-family: monospace;">${r.valueSAR.toLocaleString()} SAR</td>
+        <td style="padding: 8px;">${r.submissionDate}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Corporate Requests Report - Al-Mansoori Co.</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            h2 { border-bottom: 2px solid #1a365d; padding-bottom: 10px; color: #1a365d; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f2f5fa; padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+            td { font-size: 11px; }
+            .header-info { margin-bottom: 20px; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <h2>Al-Mansoori Industrial Co. - Unified Corporate Requests System</h2>
+          <div class="header-info">
+            <p><strong>Report Generated:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Total Filtered Records:</strong> ${currentFilteredList.length}</p>
+            <p><strong>Workflow Policy:</strong> SEC-889 Corporate Governance</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Req ID</th>
+                <th>Requester</th>
+                <th>Request Type</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Financial Value</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // Metrics calculations
+  const totalPending = requests.filter(r => r.status === 'Pending Approval').length;
+  const totalApproved = requests.filter(r => r.status === 'Approved').length;
+  const totalRejected = requests.filter(r => r.status === 'Rejected').length;
+  const totalDrafts = requests.filter(r => r.status === 'Draft').length;
+
   const getPriorityStyle = (priority: string) => {
     switch (priority) {
-      case 'Critical':
-        return 'bg-red-50 text-red-700 border border-red-200';
-      case 'High':
-        return 'bg-amber-50 text-amber-700 border border-amber-200';
-      case 'Medium':
-        return 'bg-blue-50 text-blue-700 border border-blue-200';
-      default:
-        return 'bg-gray-50 text-gray-700 border border-gray-200';
+      case 'Critical': return 'bg-red-50 text-red-700 border border-red-200';
+      case 'High': return 'bg-amber-50 text-amber-700 border border-amber-200';
+      case 'Medium': return 'bg-blue-50 text-blue-700 border border-blue-200';
+      default: return 'bg-gray-50 text-gray-700 border border-gray-200';
     }
-  };
-
-  const getPriorityBulletColor = (priority: string, isOverdue: boolean) => {
-    if (isOverdue || priority === 'Critical') return 'bg-red-500'; // Critical / Overdue
-    if (priority === 'High') return 'bg-orange-500'; // Orange = SLA warning
-    if (priority === 'Medium') return 'bg-blue-500'; // Under review
-    return 'bg-gray-400';
   };
 
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
-      case 'Approved':
-        return 'bg-green-100 text-green-800 border-green-200 font-bold';
-      case 'Rejected':
-        return 'bg-red-100 text-red-800 border-red-200 font-bold';
-      case 'Returned':
-        return 'bg-amber-100 text-amber-800 border-amber-200 font-bold';
-      default:
-        return 'bg-blue-100 text-blue-800 border-blue-200 font-bold';
+      case 'Approved': return 'bg-green-100 text-green-800 border border-green-200 font-bold';
+      case 'Rejected': return 'bg-red-100 text-red-800 border border-red-200 font-bold';
+      case 'Returned for Correction': return 'bg-yellow-100 text-yellow-800 border border-yellow-200 font-bold';
+      case 'Draft': return 'bg-gray-100 text-gray-800 border border-gray-200 font-bold';
+      default: return 'bg-blue-100 text-blue-800 border border-blue-200 font-bold';
     }
   };
 
   return (
-    <div id="enterprise_pending_requests_center" className="bg-white rounded-2xl border border-gray-150 shadow-xs p-6 space-y-6">
-      {/* Header Panel */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-5">
+    <div id="enterprise_unified_requests_module" className="bg-white rounded-2xl border border-gray-150 shadow-xs p-6 space-y-6">
+      
+      {/* Module Title and Context */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-gray-100 pb-5">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-blue-50 rounded-lg text-blue-700">
+            <span className="p-2 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg text-white shadow-xs">
               <Layers className="w-5 h-5" />
             </span>
-            <h2 className="text-lg font-black tracking-tight text-gray-900">
-              {isRtl ? 'مركز إدارة واعتماد الطلبات المؤسسي الموحد' : 'Enterprise Unified Pending Requests Center'}
+            <h2 className="text-xl font-black tracking-tight text-gray-900">
+              {isRtl ? 'نظام إدارة وحوكمة طلبات الموظفين الموحد (SAP/Oracle Ready)' : 'Enterprise Unified Requests Governance System'}
             </h2>
           </div>
-          <p className="text-xs text-gray-500 max-w-2xl">
+          <p className="text-xs text-gray-500 max-w-3xl leading-relaxed">
             {isRtl
-              ? 'لوحة تحكم إدارية موحدة لمراجعة واعتماد جميع طلبات الموظفين (الإجازات، السلف، تذاكر السفر، العمل الإضافي، الصيانة، المركبات، التعيين) حوكمة سريعة ومطابقة للوائح العمل.'
-              : 'Direct corporate command center to review, delegate, escalate, and approve all incoming workforce requests across GCC divisions, adhering to corporate SLA parameters.'}
+              ? 'بوابة اعتماد موحدة لجميع أنواع الطلبات المؤسسية (الموارد البشرية، الرواتب، الأصول، الدعم الإداري والتقني) مع مسار اعتماد تلقائي متعدد المستويات يتضمن التوقيع الإلكتروني والتحقق ومطابقة الـ SLA.'
+              : 'Enterprise-grade request hub (HR, Payroll, Admin, Assets, IT, Finance) with dynamic approval workflow routing, SLA timers, electronic signatures, role-based dashboards, and complete CSV reports.'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 px-3 py-1.5 rounded-lg border border-red-200 flex items-center gap-1.5 animate-pulse">
-            <Clock className="w-3.5 h-3.5" />
-            {isRtl ? `${overdueRequests} متجاوز للـ SLA` : `${overdueRequests} Overdue (SLA Exceeded)`}
-          </span>
+
+        {/* Action Controls */}
+        <div className="flex items-center gap-2.5 self-stretch lg:self-auto justify-end">
           <button
-            onClick={() => {
-              setSearchQuery('');
-              setFilterDept('All');
-              setFilterBranch('All');
-              setFilterType('All');
-              setFilterStage('All');
-              setFilterStatus('Pending');
-              setFilterPriority('All');
-            }}
-            className="p-1.5 text-gray-500 hover:text-blue-700 hover:bg-gray-50 rounded-lg border border-gray-200 transition-all flex items-center gap-1 text-xs"
-            title={isRtl ? 'إعادة ضبط الفلاتر' : 'Reset Filters'}
+            onClick={() => setIsCreateOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isRtl ? 'تحديث' : 'Reset'}</span>
+            <Plus className="w-4 h-4" />
+            {isRtl ? 'تقديم طلب جديد' : 'Submit New Request'}
+          </button>
+          
+          <button
+            onClick={fetchRequests}
+            className="p-2 text-gray-600 hover:text-blue-700 hover:bg-gray-50 rounded-xl border border-gray-200 transition-all flex items-center gap-1 text-xs"
+            title={isRtl ? 'تحديث البيانات من السيرفر' : 'Sync Server State'}
+          >
+            <RefreshCw className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Summary KPI Counters Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <div className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-200 text-center space-y-1">
-          <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-tight">
-            {isRtl ? 'إجمالي المعلق' : 'Total Pending'}
-          </span>
-          <p className="text-xl font-black text-blue-700">{totalPending}</p>
-          <span className="text-[9px] text-gray-400 block">{isRtl ? 'بانتظار الإجراء' : 'Awaiting review'}</span>
-        </div>
-
-        <div className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-200 text-center space-y-1">
-          <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-tight">
-            {isRtl ? 'المشرف المباشر' : 'Supervisor L1'}
-          </span>
-          <p className="text-xl font-black text-gray-800">{awaitingSupervisor}</p>
-          <span className="text-[9px] text-gray-400 block">{isRtl ? 'مستوى 1 معلق' : 'L1 pending'}</span>
-        </div>
-
-        <div className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-200 text-center space-y-1">
-          <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-tight">
-            {isRtl ? 'مدير القسم' : 'Dept Mgr L2'}
-          </span>
-          <p className="text-xl font-black text-gray-800">{awaitingManager}</p>
-          <span className="text-[9px] text-gray-400 block">{isRtl ? 'مستوى 2 معلق' : 'L2 pending'}</span>
-        </div>
-
-        <div className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-200 text-center space-y-1">
-          <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-tight">
-            {isRtl ? 'الموارد البشرية' : 'HR Dept L3'}
-          </span>
-          <p className="text-xl font-black text-[#1565C0]">{awaitingHR}</p>
-          <span className="text-[9px] text-gray-400 block">{isRtl ? 'مستوى 3 معلق' : 'L3 pending'}</span>
-        </div>
-
-        <div className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-200 text-center space-y-1">
-          <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-tight">
-            {isRtl ? 'الشؤون المالية' : 'Finance L4'}
-          </span>
-          <p className="text-xl font-black text-amber-700">{awaitingFinance}</p>
-          <span className="text-[9px] text-gray-400 block">{isRtl ? 'مستوى 4 معلق' : 'L4 pending'}</span>
-        </div>
-
-        <div className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-200 text-center space-y-1">
-          <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-tight">
-            {isRtl ? 'المدير العام' : 'Exec L5/GM'}
-          </span>
-          <p className="text-xl font-black text-purple-700">{awaitingExecutive}</p>
-          <span className="text-[9px] text-gray-400 block">{isRtl ? 'اعتماد نهائي L5' : 'L5 final'}</span>
-        </div>
-
-        <div className="bg-blue-50/40 p-3.5 rounded-xl border border-blue-200 text-center space-y-1 col-span-2 md:col-span-1">
-          <span className="text-[10px] text-blue-900 block uppercase font-black tracking-tight">
-            {isRtl ? 'المنجز اليوم' : 'Processed Today'}
-          </span>
-          <div className="flex justify-center items-center gap-2 mt-1">
-            <span className="text-xs font-bold text-green-700">✓ {approvedToday}</span>
-            <span className="text-xs font-bold text-red-700">✗ {rejectedToday}</span>
-          </div>
-          <span className="text-[9px] text-blue-600 block">{isRtl ? 'الاعتمادات الكلية' : 'Total decisions'}</span>
-        </div>
-      </div>
-
-      {/* Advanced Filtering Board */}
-      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-            <SlidersHorizontal className="w-4 h-4 text-gray-500" />
-            {isRtl ? 'لوحة الفرز والبحث المتقدم للطلبات' : 'Advanced Request Query & Filters'}
-          </span>
-          <div className="text-[10px] text-gray-500 font-mono">
-            {isRtl ? `مطابقة: ${filteredRequests.length} طلب` : `Found: ${filteredRequests.length} requests`}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
-          {/* Search bar */}
-          <div className="relative col-span-1 sm:col-span-2 xl:col-span-2">
-            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder={isRtl ? 'البحث بالموظف، المعرف، تفاصيل...' : 'Search requester, ID, key term...'}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 font-medium text-gray-800"
-            />
-          </div>
-
-          {/* Department */}
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-bold text-gray-500 block">{isRtl ? 'القسم' : 'Department'}</label>
-            <select
-              value={filterDept}
-              onChange={(e) => setFilterDept(e.target.value)}
-              className="w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-semibold text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="All">{isRtl ? 'الكل' : 'All Departments'}</option>
-              {departments.filter(d => d !== 'All').map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Branch */}
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-bold text-gray-500 block">{isRtl ? 'الفرع' : 'Branch/Site'}</label>
-            <select
-              value={filterBranch}
-              onChange={(e) => setFilterBranch(e.target.value)}
-              className="w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-semibold text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="All">{isRtl ? 'الكل' : 'All Branches'}</option>
-              {branches.filter(b => b !== 'All').map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Request Type */}
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-bold text-gray-500 block">{isRtl ? 'نوع المعاملة' : 'Request Type'}</label>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-semibold text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="All">{isRtl ? 'الكل' : 'All Types'}</option>
-              {requestTypes.filter(t => t !== 'All').map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Stage */}
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-bold text-gray-500 block">{isRtl ? 'مرحلة المراجعة' : 'Approval Level'}</label>
-            <select
-              value={filterStage}
-              onChange={(e) => setFilterStage(e.target.value)}
-              className="w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-semibold text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-            >
-              {stages.map((stg) => (
-                <option key={stg.value} value={stg.value}>{stg.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status */}
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-bold text-gray-500 block">{isRtl ? 'الحالة الكلية' : 'Overall Status'}</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-semibold text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="All">{isRtl ? 'الكل' : 'All Statuses'}</option>
-              <option value="Pending">{isRtl ? 'قيد الانتظار' : 'Pending'}</option>
-              <option value="Approved">{isRtl ? 'معتمد' : 'Approved'}</option>
-              <option value="Rejected">{isRtl ? 'مرفوض' : 'Rejected'}</option>
-              <option value="Returned">{isRtl ? 'معاد للموظف' : 'Returned'}</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Request Grid / Table */}
-      {filteredRequests.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
-          <Inbox className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-xs text-gray-500 font-bold">
-            {isRtl ? 'لا توجد طلبات معلقة تطابق خيارات الفرز المحددة.' : 'No pending requests match the filtered parameters.'}
-          </p>
+      {/* Role Switcher Board - For testing the Multi-Level Dashboard Roles */}
+      <div className="bg-gray-50/70 p-3.5 rounded-xl border border-gray-200 space-y-2">
+        <span className="text-[10px] font-black uppercase text-gray-400 block tracking-wider">
+          {isRtl ? 'مبدل الأدوار وتجربة حوكمة الطلبات' : 'Interactive Roles & Dashboard Switchboard'}
+        </span>
+        <div className="flex flex-wrap gap-1.5">
           <button
-            onClick={() => {
-              setFilterDept('All');
-              setFilterBranch('All');
-              setFilterType('All');
-              setFilterStage('All');
-              setFilterStatus('All');
-              setFilterPriority('All');
-              setSearchQuery('');
-            }}
-            className="text-xs text-blue-600 font-semibold underline mt-1.5"
+            onClick={() => { setActiveRolePerspective('all'); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeRolePerspective === 'all'
+                ? 'bg-gray-900 text-white shadow-xs'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
           >
-            {isRtl ? 'إظهار جميع الطلبات المعلقة' : 'View all requests instead'}
+            {isRtl ? 'الكل (لوحة المدير العام)' : 'All Requests View'}
+          </button>
+          
+          <button
+            onClick={() => { setActiveRolePerspective('employee'); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeRolePerspective === 'employee'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            👤 {isRtl ? 'لوحة الموظف' : 'Employee Dashboard'}
+          </button>
+
+          <button
+            onClick={() => { setActiveRolePerspective('l1'); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeRolePerspective === 'l1'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            ✓ {isRtl ? 'المشرف المباشر (L1)' : 'Supervisor (L1)'}
+          </button>
+
+          <button
+            onClick={() => { setActiveRolePerspective('l2'); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeRolePerspective === 'l2'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            ✓ {isRtl ? 'مدير القسم (L2)' : 'Dept Manager (L2)'}
+          </button>
+
+          <button
+            onClick={() => { setActiveRolePerspective('l3'); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeRolePerspective === 'l3'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            ✓ {isRtl ? 'مدير الموارد البشرية (L3)' : 'HR Manager (L3)'}
+          </button>
+
+          <button
+            onClick={() => { setActiveRolePerspective('l4'); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeRolePerspective === 'l4'
+                ? 'bg-pink-600 text-white shadow-xs'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            ✓ {isRtl ? 'الشؤون المالية (L4)' : 'Finance Manager (L4)'}
+          </button>
+
+          <button
+            onClick={() => { setActiveRolePerspective('l5'); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              activeRolePerspective === 'l5'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            👑 {isRtl ? 'المدير العام (L5)' : 'General Manager (L5)'}
+          </button>
+
+          <button
+            onClick={() => { setActiveRolePerspective('reports'); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+              activeRolePerspective === 'reports'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            📊 {isRtl ? 'التقارير والإحصائيات' : 'Reporting & Analytics'}
           </button>
         </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-2xs">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase tracking-wider text-[9px] font-bold">
-                <th className="py-3 px-4">{isRtl ? 'معرّف الموظف والطلب' : 'Request & Requester'}</th>
-                <th className="py-3 px-4">{isRtl ? 'القسم والمنصب' : 'Dept & Position'}</th>
-                <th className="py-3 px-4">{isRtl ? 'تفاصيل المعاملة' : 'Request Type & Details'}</th>
-                <th className="py-3 px-4">{isRtl ? 'مرحلة الاعتماد الحالية' : 'Approval Level'}</th>
-                <th className="py-3 px-4">{isRtl ? 'الأولية ومدة التعليق' : 'Priority / Pending'}</th>
-                <th className="py-3 px-4 text-center">{isRtl ? 'الإجراءات والعمليات' : 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {filteredRequests.map((req) => {
-                const isOverdue = req.pendingDays * 24 > req.slaLimitHours;
-                return (
-                  <tr key={req.id} className="hover:bg-gray-50/50 transition-all">
-                    {/* ID & Requester */}
-                    <td className="py-3.5 px-4 space-y-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-gray-900 font-mono">{req.id}</span>
-                        <span className={`w-2 h-2 rounded-full ${getPriorityBulletColor(req.priority, isOverdue)}`} />
-                      </div>
-                      <div className="font-semibold text-gray-800">{req.employeeName}</div>
-                      <div className="text-[10px] text-gray-500 font-mono">{req.employeeId} • {req.branch}</div>
-                    </td>
 
-                    {/* Department & Job */}
-                    <td className="py-3.5 px-4 space-y-1">
-                      <div className="font-medium text-gray-700">{req.department}</div>
-                      <div className="text-[10px] text-gray-500 font-mono">{req.jobTitle}</div>
-                    </td>
+        {activeRolePerspective === 'employee' && (
+          <div className="flex items-center gap-2 mt-2 bg-white p-2 rounded-lg border border-gray-150">
+            <span className="text-[11px] font-bold text-gray-600">{isRtl ? 'اختر الموظف النشط لمشاهدة لوحته الشخصية:' : 'Switch Active Employee perspective:'}</span>
+            <select
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              className="px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-bold text-gray-800"
+            >
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.id})</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
-                    {/* Request Type & Description */}
-                    <td className="py-3.5 px-4 space-y-1 max-w-sm">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[10px] border border-blue-100">
-                          {req.requestType}
-                        </span>
-                        {req.isFinancial && (
-                          <span className="font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] border border-amber-100 font-mono">
-                            {req.valueSAR.toLocaleString()} SAR
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-gray-600 line-clamp-2" title={req.details}>
-                        {req.details}
-                      </p>
-                    </td>
+      {activeRolePerspective !== 'reports' ? (
+        <>
+          {/* Quick Metrics Indicators */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+            <div className="bg-gradient-to-tr from-blue-50 to-blue-100/40 p-4 rounded-xl border border-blue-200/60 text-center space-y-1">
+              <span className="text-[10px] text-blue-900 block uppercase font-bold tracking-tight">
+                {isRtl ? 'جميع المعاملات بالسيستم' : 'System Total'}
+              </span>
+              <p className="text-2xl font-black text-blue-800">{requests.length}</p>
+              <span className="text-[9px] text-blue-500 block">{isRtl ? 'مسجلة بقاعدة البيانات' : 'In persistent ledger'}</span>
+            </div>
 
-                    {/* Stage & Approver */}
-                    <td className="py-3.5 px-4 space-y-1">
-                      <div className="text-[10px] font-bold text-gray-800 bg-gray-100 border border-gray-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                        <UserCheck className="w-3 h-3 text-gray-600" />
-                        {req.currentLevelName.split(' – ')[1] || req.currentLevelName}
-                      </div>
-                      <div className="text-[10px] text-gray-500 flex items-center gap-1">
-                        <span className="font-bold text-gray-700">{isRtl ? 'المراجع الحالي:' : 'Approver:'}</span>
-                        <span>{req.currentApprover}</span>
-                      </div>
-                    </td>
+            <div className="bg-gradient-to-tr from-amber-50 to-amber-100/40 p-4 rounded-xl border border-amber-200/60 text-center space-y-1">
+              <span className="text-[10px] text-amber-900 block uppercase font-bold tracking-tight">
+                {isRtl ? 'بانتظار الاعتماد الحركي' : 'Pending Approvals'}
+              </span>
+              <p className="text-2xl font-black text-amber-800">{totalPending}</p>
+              <span className="text-[9px] text-amber-600 block">{isRtl ? 'موزعة عبر المستويات' : 'Active workflow routes'}</span>
+            </div>
 
-                    {/* Priority & Pending days */}
-                    <td className="py-3.5 px-4 space-y-1">
-                      <div className="flex items-center gap-1">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getPriorityStyle(req.priority)}`}>
-                          {req.priority}
-                        </span>
-                        {isOverdue && (
-                          <span className="bg-red-100 text-red-800 border border-red-200 text-[9px] font-bold px-1.5 py-0.5 rounded">
-                            {isRtl ? 'متجاوز SLA' : 'SLA OVERDUE'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-gray-500 font-mono">
-                        <span className="font-semibold text-gray-700">{req.pendingDays} {isRtl ? 'أيام معلقة' : 'days pending'}</span>
-                        <span className="block text-[9px] text-gray-400">({isRtl ? `المهلة: ${req.slaLimitHours} ساعة` : `Limit: ${req.slaLimitHours}h`})</span>
-                      </div>
-                    </td>
+            <div className="bg-gradient-to-tr from-green-50 to-green-100/40 p-4 rounded-xl border border-green-200/60 text-center space-y-1">
+              <span className="text-[10px] text-green-900 block uppercase font-bold tracking-tight">
+                {isRtl ? 'معاملات معتمدة نهائياً' : 'Completed Approved'}
+              </span>
+              <p className="text-2xl font-black text-green-800">{totalApproved}</p>
+              <span className="text-[9px] text-green-600 block">{isRtl ? 'جاهزة للتسوية' : 'Ready for action'}</span>
+            </div>
 
-                    {/* Actions */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            setSelectedRequest(req);
-                            setModalAction('view');
-                          }}
-                          className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold px-2 py-1 rounded text-[11px] transition-all cursor-pointer"
-                        >
-                          {isRtl ? 'التفاصيل' : 'Details'}
-                        </button>
-                        {req.status === 'Pending' && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setSelectedRequest(req);
-                                setModalAction('approve');
-                              }}
-                              className="bg-green-600 hover:bg-green-700 text-white font-bold px-2.5 py-1 rounded text-[11px] flex items-center gap-0.5 transition-all cursor-pointer"
-                            >
-                              <Check className="w-3 h-3" />
-                              {isRtl ? 'اعتماد' : 'Approve'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedRequest(req);
-                                setModalAction('reject');
-                              }}
-                              className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold px-2 py-1 rounded text-[11px] flex items-center gap-0.5 transition-all cursor-pointer"
-                            >
-                              <X className="w-3 h-3" />
-                              {isRtl ? 'رفض' : 'Reject'}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
+            <div className="bg-gradient-to-tr from-red-50 to-red-100/40 p-4 rounded-xl border border-red-200/60 text-center space-y-1">
+              <span className="text-[10px] text-red-900 block uppercase font-bold tracking-tight">
+                {isRtl ? 'الطلبات المرفوضة' : 'Rejected Requests'}
+              </span>
+              <p className="text-2xl font-black text-red-800">{totalRejected}</p>
+              <span className="text-[9px] text-red-600 block">{isRtl ? 'مستبعدة من حيز العمل' : 'Archived logs'}</span>
+            </div>
+
+            <div className="bg-gradient-to-tr from-gray-50 to-gray-100/40 p-4 rounded-xl border border-gray-200 text-center space-y-1 col-span-2 md:col-span-1">
+              <span className="text-[10px] text-gray-900 block uppercase font-bold tracking-tight">
+                {isRtl ? 'المسودات المؤقتة' : 'Saved Drafts'}
+              </span>
+              <p className="text-2xl font-black text-gray-700">{totalDrafts}</p>
+              <span className="text-[9px] text-gray-400 block">{isRtl ? 'بانتظار المراجعة والتقديم' : 'Awaiting submission'}</span>
+            </div>
+          </div>
+
+          {/* Filtering and Search Controls */}
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                <SlidersHorizontal className="w-4 h-4 text-gray-500" />
+                {isRtl ? 'لوحة البحث والفرز المتطور للطلبات' : 'Surgical Search & Filtration'}
+              </span>
+              <div className="text-[10px] text-gray-500 font-mono">
+                {isRtl ? `مطابقة: ${currentFilteredList.length} طلب` : `Showing ${currentFilteredList.length} requests`}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Search input */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={isRtl ? 'البحث بالاسم، المعرّف، تفاصيل المعاملة...' : 'Search requester name, request number...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 font-medium text-gray-800"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="All">{isRtl ? 'جميع التصنيفات' : 'All Categories'}</option>
+                  <option value="HR Requests">{isRtl ? 'الموارد البشرية' : 'HR Requests'}</option>
+                  <option value="Payroll Requests">{isRtl ? 'الرواتب والأجور' : 'Payroll Requests'}</option>
+                  <option value="Administrative Requests">{isRtl ? 'الطلبات الإدارية' : 'Administrative Requests'}</option>
+                  <option value="Assets & Equipment Requests">{isRtl ? 'الأصول والمعدات' : 'Assets & Equipment Requests'}</option>
+                  <option value="IT Requests">{isRtl ? 'الدعم التقني' : 'IT Requests'}</option>
+                  <option value="Finance Requests">{isRtl ? 'المالية' : 'Finance Requests'}</option>
+                </select>
+              </div>
+
+              {/* Priority */}
+              <div>
+                <select
+                  value={filterPriority}
+                  onChange={(e) => setFilterPriority(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="All">{isRtl ? 'جميع الأولويات' : 'All Priorities'}</option>
+                  <option value="Critical">{isRtl ? 'حرج جداً (SLA 24h)' : 'Critical (24h SLA)'}</option>
+                  <option value="High">{isRtl ? 'عالي (SLA 48h)' : 'High (48h SLA)'}</option>
+                  <option value="Medium">{isRtl ? 'متوسط (SLA 72h)' : 'Medium (72h SLA)'}</option>
+                  <option value="Low">{isRtl ? 'منخفض' : 'Low'}</option>
+                </select>
+              </div>
+
+              {/* Status */}
+              <div>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="All">{isRtl ? 'جميع الحالات' : 'All Statuses'}</option>
+                  <option value="Pending Approval">{isRtl ? 'قيد المراجعة والاعتماد' : 'Pending Approval'}</option>
+                  <option value="Approved">{isRtl ? 'معتمد' : 'Approved'}</option>
+                  <option value="Rejected">{isRtl ? 'مرفوض' : 'Rejected'}</option>
+                  <option value="Returned for Correction">{isRtl ? 'معاد للتصحيح' : 'Returned for Correction'}</option>
+                  <option value="Draft">{isRtl ? 'مسودة' : 'Draft'}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Table list of Requests */}
+          {isLoading ? (
+            <div className="text-center py-12">
+              <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
+              <p className="text-xs text-gray-500">{isRtl ? 'جارٍ مزامنة المعاملات وجلبها من السيرفر...' : 'Synchronizing and loading corporate requests from database...'}</p>
+            </div>
+          ) : currentFilteredList.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+              <Inbox className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p className="text-xs text-gray-500 font-bold">
+                {isRtl ? 'لا توجد طلبات معلقة تطابق خيارات الفرز المحددة حالياً.' : 'No requests found matching your filter selection.'}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-2xs">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase tracking-wider text-[9px] font-bold">
+                    <th className="py-3 px-4">{isRtl ? 'معرّف الطلب والموظف' : 'Request & Employee'}</th>
+                    <th className="py-3 px-4">{isRtl ? 'القسم والفرع' : 'Division & Branch'}</th>
+                    <th className="py-3 px-4">{isRtl ? 'نوع المعاملة والمسوغات' : 'Category / Request Details'}</th>
+                    <th className="py-3 px-4">{isRtl ? 'المرحلة والاعتماد الحالي' : 'Current Workflow Step'}</th>
+                    <th className="py-3 px-4">{isRtl ? 'الأولية والـ SLA' : 'Priority / SLA status'}</th>
+                    <th className="py-3 px-4 text-center">{isRtl ? 'إجراءات الحوكمة' : 'Actions'}</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {currentFilteredList.map((req) => {
+                    const isOverdue = req.pendingDays > 0; // Simple trigger for SLA
+                    return (
+                      <tr key={req.id} className="hover:bg-gray-50/50 transition-all">
+                        {/* ID & Requester */}
+                        <td className="py-3.5 px-4 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-gray-900 font-mono text-[11px]">{req.id}</span>
+                            <span className={`w-2 h-2 rounded-full ${req.priority === 'Critical' ? 'bg-red-500 animate-ping' : 'bg-blue-400'}`} />
+                          </div>
+                          <div className="font-semibold text-gray-800">{req.employeeName}</div>
+                          <div className="text-[10px] text-gray-500 font-mono">{req.employeeId}</div>
+                        </td>
+
+                        {/* Department & Branch */}
+                        <td className="py-3.5 px-4 space-y-1">
+                          <div className="font-medium text-gray-700">{req.department}</div>
+                          <div className="text-[10px] text-gray-500 font-mono">{req.branch}</div>
+                        </td>
+
+                        {/* Request Type & Description */}
+                        <td className="py-3.5 px-4 space-y-1 max-w-sm">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[10px] border border-blue-100">
+                              {req.requestType}
+                            </span>
+                            {req.isFinancial && (
+                              <span className="font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] border border-amber-100 font-mono">
+                                {req.valueSAR.toLocaleString()} SAR
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-gray-600 line-clamp-2" title={req.details}>
+                            {req.details}
+                          </p>
+                        </td>
+
+                        {/* Current Workflow Step */}
+                        <td className="py-3.5 px-4 space-y-1">
+                          <div className="text-[10px] font-bold text-gray-800 bg-gray-100 border border-gray-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                            <UserCheck className="w-3 h-3 text-gray-600" />
+                            {req.currentLevelName}
+                          </div>
+                          <div className="text-[10px] text-gray-500 flex items-center gap-1">
+                            <span className="font-bold text-gray-700">{isRtl ? 'المكلّف الحالي:' : 'Assignee:'}</span>
+                            <span className="truncate max-w-[130px]">{req.currentApprover}</span>
+                          </div>
+                        </td>
+
+                        {/* Priority / SLA */}
+                        <td className="py-3.5 px-4 space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getPriorityStyle(req.priority)}`}>
+                              {req.priority}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 font-mono">
+                            <span className="font-semibold text-gray-700">SLA Timer: {req.slaLimitHours}h Limit</span>
+                            <span className="block text-[9px] text-gray-400">{isRtl ? 'مضى على التقديم: 0 يوم' : 'Age: 0 days'}</span>
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setSelectedRequest(req);
+                                setModalAction('view');
+                              }}
+                              className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold px-2.5 py-1 rounded text-[11px] transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              {isRtl ? 'تفاصيل' : 'Details'}
+                            </button>
+                            {req.status === 'Pending Approval' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedRequest(req);
+                                  setModalAction('approve');
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded text-[11px] transition-all cursor-pointer flex items-center gap-0.5"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                {isRtl ? 'اعتماد' : 'Approve'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      ) : (
+        /* Analytics and Detailed Reporting Dashboard */
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <div>
+              <h3 className="text-sm font-black text-gray-900">{isRtl ? 'التقارير التحليلية المتقدمة وتصدير البيانات' : 'Enterprise Advanced Analytics & Report Export'}</h3>
+              <p className="text-xs text-gray-500">{isRtl ? 'قم بتصفية وتصدير ومراجعة أداء الـ SLA ومعدل المراجعة والاعتماد للطلبات' : 'Filter, print, or download requests data matching corporate audit compliance specifications.'}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportToCSV}
+                className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+              >
+                <Download className="w-4 h-4 text-green-600" />
+                {isRtl ? 'تصدير لملف Excel' : 'Export to Excel'}
+              </button>
+              <button
+                onClick={handlePrintPDF}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+              >
+                <Printer className="w-4 h-4" />
+                {isRtl ? 'طباعة PDF' : 'Print PDF Report'}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-2xs space-y-3">
+              <h4 className="text-xs font-bold text-gray-900 border-b pb-1.5 uppercase tracking-wide">{isRtl ? 'نسبة أداء اتفاقية الـ SLA' : 'SLA Performance Index'}</h4>
+              <div className="flex items-center gap-4">
+                <span className="p-3 bg-green-50 rounded-full text-green-700">
+                  <Clock className="w-6 h-6" />
+                </span>
+                <div>
+                  <p className="text-2xl font-black text-green-700">97.8%</p>
+                  <p className="text-[10px] text-gray-500">{isRtl ? 'متوسط وقت الحل: 14.5 ساعة' : 'Mean resolve duration: 14.5h'}</p>
+                </div>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="bg-green-600 h-2 rounded-full" style={{ width: '97.8%' }}></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-2xs space-y-3">
+              <h4 className="text-xs font-bold text-gray-900 border-b pb-1.5 uppercase tracking-wide">{isRtl ? 'معدل الحوكمة والقبول' : 'Workflow Governance rate'}</h4>
+              <div className="flex items-center gap-4">
+                <span className="p-3 bg-blue-50 rounded-full text-blue-700">
+                  <CheckCircle className="w-6 h-6" />
+                </span>
+                <div>
+                  <p className="text-2xl font-black text-blue-700">91.4%</p>
+                  <p className="text-[10px] text-gray-500">{isRtl ? 'نسبة الرفض الحالية: 8.6%' : 'Rejection rate: 8.6%'}</p>
+                </div>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '91.4%' }}></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-2xs space-y-3 col-span-1 md:col-span-2 lg:col-span-1">
+              <h4 className="text-xs font-bold text-gray-900 border-b pb-1.5 uppercase tracking-wide">{isRtl ? 'مستندات التوقيع الإلكتروني' : 'Electronic Signatures Verified'}</h4>
+              <div className="flex items-center gap-4">
+                <span className="p-3 bg-indigo-50 rounded-full text-indigo-700">
+                  <ShieldCheck className="w-6 h-6" />
+                </span>
+                <div>
+                  <p className="text-2xl font-black text-indigo-700">100% Secure</p>
+                  <p className="text-[10px] text-gray-500">{isRtl ? 'توقيعات مشفرة ومؤرخة بالسيستم' : 'IP-stamped corporate compliance'}</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400 italic bg-gray-50 p-2 rounded border">{isRtl ? '✓ جميع معاملات المراجعة تحمل بصمات تشفيرية للأجهزة.' : '✓ Certified electronic signature certificates matching ISO/IEC 27001.'}</p>
+            </div>
+          </div>
+
+          {/* Graphical Breakdown by Category */}
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-2xs space-y-4">
+            <h4 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide border-b pb-2 flex items-center gap-1">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+              {isRtl ? 'توزيع الطلبات بحسب التصنيف والقطاع' : 'Request Volume Breakdown by Business Categories'}
+            </h4>
+            <div className="space-y-3">
+              {[
+                { name: 'HR Requests', val: 12, percent: 55, color: 'bg-blue-600' },
+                { name: 'Payroll Requests', val: 5, percent: 23, color: 'bg-emerald-600' },
+                { name: 'Administrative Requests', val: 3, percent: 14, color: 'bg-purple-600' },
+                { name: 'Assets & Equipment Requests', val: 4, percent: 18, color: 'bg-orange-600' },
+                { name: 'IT Requests', val: 2, percent: 9, color: 'bg-indigo-600' },
+                { name: 'Finance Requests', val: 1, percent: 5, color: 'bg-rose-600' },
+              ].map((item, idx) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-gray-700">{item.name}</span>
+                    <span className="text-gray-900 font-mono">{item.val} {isRtl ? 'طلبات' : 'requests'} ({item.percent}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3">
+                    <div className={`${item.color} h-3 rounded-full`} style={{ width: `${item.percent}%` }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Interactive Operations Modal */}
-      {selectedRequest && (
+      {/* CREATE NEW REQUEST DIALOG / DRAWER */}
+      {isCreateOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl max-w-2xl w-full p-6 space-y-5 animate-scale-up">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-scale-up">
+            
             {/* Modal Header */}
             <div className="flex justify-between items-start border-b border-gray-100 pb-4">
               <div>
-                <span className="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100">
+                <h3 className="text-base font-black text-gray-900">
+                  {isRtl ? 'تقديم نموذج معاملة مؤسسية موحدة' : 'Submit Corporate Employee Request'}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {isRtl ? 'اختر تصنيف الطلب واستكمل النموذج الإداري لإرساله لمسار الحوكمة.' : 'Fill in the structured fields to register your employee request.'}
+                </p>
+              </div>
+              <button onClick={() => setIsCreateOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4 text-xs">
+              {/* Category selector */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="font-bold text-gray-700 block">{isRtl ? 'التصنيف الرئيسي:' : 'Request Category:'}</label>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => {
+                      const cat = e.target.value as keyof typeof REQUEST_CATEGORIES;
+                      setFormCategory(cat);
+                      setFormType(REQUEST_CATEGORIES[cat].types[0]);
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800"
+                  >
+                    {Object.entries(REQUEST_CATEGORIES).map(([key, value]) => (
+                      <option key={key} value={key}>{isRtl ? value.labelAr : value.labelEn}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sub-type selector */}
+                <div className="space-y-1">
+                  <label className="font-bold text-gray-700 block">{isRtl ? 'نوع المعاملة الدقيق:' : 'Surgical Request Type:'}</label>
+                  <select
+                    value={formType}
+                    onChange={(e) => setFormType(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800"
+                  >
+                    {REQUEST_CATEGORIES[formCategory].types.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Employee & Priority Selection */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="font-bold text-gray-700 block">{isRtl ? 'الموظف مقدم الطلب:' : 'Requesting Employee:'}</label>
+                  <select
+                    value={formEmployeeId}
+                    onChange={(e) => setFormEmployeeId(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800"
+                  >
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-gray-700 block">{isRtl ? 'درجة الأولوية (SLA Indicator):' : 'Priority Level:'}</label>
+                  <select
+                    value={formPriority}
+                    onChange={(e) => setFormPriority(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-semibold text-gray-800"
+                  >
+                    <option value="Low">{isRtl ? 'منخفض' : 'Low'}</option>
+                    <option value="Medium">{isRtl ? 'متوسط (72h SLA)' : 'Medium (72h SLA)'}</option>
+                    <option value="High">{isRtl ? 'عالي (48h SLA)' : 'High (48h SLA)'}</option>
+                    <option value="Critical">{isRtl ? 'حرج جداً (24h SLA)' : 'Critical (24h SLA)'}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* DYNAMIC FORM SEGMENTS */}
+              <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100 space-y-3">
+                <span className="text-[10px] font-black uppercase text-blue-700 block tracking-wider">
+                  {isRtl ? 'المرفقات والبيانات المتغيرة المطلوبة' : 'Dynamic Form Parameters'}
+                </span>
+
+                {formCategory === 'hr' && (formType.includes('Leave') || formType.includes('Exit')) && (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-gray-600 block">{isRtl ? 'نوع الإجازة:' : 'Leave Type:'}</label>
+                        <select
+                          value={customLeaveType}
+                          onChange={(e) => setCustomLeaveType(e.target.value)}
+                          className="w-full px-2 py-1 bg-white border rounded text-xs"
+                        >
+                          <option value="Annual Leave">{isRtl ? 'إجازة سنوية' : 'Annual Leave'}</option>
+                          <option value="Sick Leave">{isRtl ? 'إجازة مرضية' : 'Sick Leave'}</option>
+                          <option value="Emergency Leave">{isRtl ? 'إجازة اضطرارية' : 'Emergency Leave'}</option>
+                          <option value="Maternity Leave">{isRtl ? 'إجازة أمومة' : 'Maternity Leave'}</option>
+                          <option value="Paternity Leave">{isRtl ? 'إجازة أبوة' : 'Paternity Leave'}</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-gray-600 block">{isRtl ? 'تاريخ البدء:' : 'Start Date:'}</label>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="w-full px-2 py-1 bg-white border rounded text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-gray-600 block">{isRtl ? 'تاريخ الانتهاء المخطط:' : 'End Date:'}</label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full px-2 py-1 bg-white border rounded text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {(formCategory === 'payroll' || formCategory === 'finance') && (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-gray-600 block">{isRtl ? 'القيمة المطلوبة بالريال (SAR):' : 'Requested Value (SAR):'}</label>
+                        <input
+                          type="number"
+                          placeholder="Amount in SAR"
+                          value={customAmount}
+                          onChange={(e) => setCustomAmount(e.target.value)}
+                          className="w-full px-2 py-1 bg-white border rounded text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-gray-600 block">{isRtl ? 'عدد أشهر السداد / التقسيط:' : 'Repayment Months:'}</label>
+                        <input
+                          type="number"
+                          placeholder="Installments count"
+                          value={customInstallments}
+                          onChange={(e) => setCustomInstallments(e.target.value)}
+                          className="w-full px-2 py-1 bg-white border rounded text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {formCategory === 'assets' && (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-gray-600 block">{isRtl ? 'اسم الأصل أو المعدة:' : 'Asset / Custody Name:'}</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. HP Workstation, Toyota Pickup"
+                          value={customAssetName}
+                          onChange={(e) => setCustomAssetName(e.target.value)}
+                          className="w-full px-2 py-1 bg-white border rounded text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-gray-600 block">{isRtl ? 'تاريخ الإرجاع المتوقع:' : 'Expected Return Date:'}</label>
+                        <input
+                          type="date"
+                          value={customTargetDate}
+                          onChange={(e) => setCustomTargetDate(e.target.value)}
+                          className="w-full px-2 py-1 bg-white border rounded text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {formCategory === 'it' && (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-gray-600 block">{isRtl ? 'اسم الحساب المستهدف:' : 'AD Username:'}</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. f.harbi"
+                          value={customUsername}
+                          onChange={(e) => setCustomUsername(e.target.value)}
+                          className="w-full px-2 py-1 bg-white border rounded text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-gray-600 block">{isRtl ? 'النظام التقني المطلوب:' : 'Target Application/System:'}</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Oracle HCM, Active Directory"
+                          value={customSystem}
+                          onChange={(e) => setCustomSystem(e.target.value)}
+                          className="w-full px-2 py-1 bg-white border rounded text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="font-bold text-gray-700 block">{isRtl ? 'شرح إداري تفصيلي ومبررات الطلب:' : 'Request Explanation & Justifications:'}</label>
+                  <textarea
+                    rows={2}
+                    value={formDetails}
+                    onChange={(e) => setFormDetails(e.target.value)}
+                    placeholder={isRtl ? 'أدخل مسوغات وأسباب تقديم المعاملة بالتفصيل هنا...' : 'State precise operational justifications or instructions...'}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+              <button
+                onClick={() => handleCreateRequest(true)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer"
+              >
+                💾 {isRtl ? 'حفظ كمسودة مؤقتة' : 'Save as Draft'}
+              </button>
+              <button
+                onClick={() => handleCreateRequest(false)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+              >
+                <Send className="w-3.5 h-3.5" />
+                {isRtl ? 'تقديم للموافقة الفورية' : 'Submit for Approval'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INTERACTIVE GOVERNANCE & APPROVAL MODAL */}
+      {selectedRequest && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl max-w-2xl w-full p-6 space-y-5 animate-scale-up">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-gray-100 pb-4">
+              <div>
+                <span className="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded border border-blue-100">
                   {selectedRequest.id}
                 </span>
                 <h3 className="text-base font-black text-gray-900 mt-1">
-                  {isRtl ? `طلب حوكمة: ${selectedRequest.requestType}` : `Governance Request: ${selectedRequest.requestType}`}
+                  {isRtl ? `حوكمة الطلب: ${selectedRequest.requestType}` : `Governance Audit: ${selectedRequest.requestType}`}
                 </h3>
                 <p className="text-xs text-gray-500">
                   {isRtl
-                    ? `مقدم من ${selectedRequest.employeeName} (${selectedRequest.employeeId})`
-                    : `Submitted by ${selectedRequest.employeeName} (${selectedRequest.employeeId})`}
+                    ? `مقدّم من الموظف: ${selectedRequest.employeeName} (${selectedRequest.employeeId})`
+                    : `Submitted by: ${selectedRequest.employeeName} (${selectedRequest.employeeId})`}
                 </p>
               </div>
               <button
@@ -1238,6 +1229,7 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                   setSelectedRequest(null);
                   setCommentText('');
                   setDelegationTarget('');
+                  setElectronicSignature('');
                 }}
                 className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
               >
@@ -1245,84 +1237,90 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
               </button>
             </div>
 
-            {/* Modal Content - Two columns */}
+            {/* Metadata and form values columns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <h4 className="font-bold text-gray-900 text-xs border-b pb-1.5 flex items-center gap-1.5">
                   <Info className="w-3.5 h-3.5 text-blue-600" />
-                  {isRtl ? 'بيانات الطلب التفصيلية' : 'Detailed Request Metadata'}
+                  {isRtl ? 'البيانات الهيكلية والوظيفية' : 'Corporate Request Metadata'}
                 </h4>
                 <div className="space-y-2">
                   <div>
-                    <span className="text-gray-500 font-medium block">{isRtl ? 'الفرع والموقع:' : 'Branch & Site Location:'}</span>
+                    <span className="text-gray-500 font-medium block">{isRtl ? 'الفرع والموقع:' : 'Branch Location:'}</span>
                     <span className="font-bold text-gray-800">{selectedRequest.branch}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 font-medium block">{isRtl ? 'القسم والإدارة:' : 'Division & Department:'}</span>
+                    <span className="text-gray-500 font-medium block">{isRtl ? 'القسم والإدارة:' : 'Department/Division:'}</span>
                     <span className="font-bold text-gray-800">{selectedRequest.department}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 font-medium block">{isRtl ? 'المسمى الوظيفي:' : 'Official Job Title:'}</span>
-                    <span className="font-bold text-gray-800">{selectedRequest.jobTitle}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 font-medium block">{isRtl ? 'تاريخ تقديم الطلب:' : 'Date Submitted:'}</span>
+                    <span className="text-gray-500 font-medium block">{isRtl ? 'تاريخ تقديم الطلب:' : 'Date Registered:'}</span>
                     <span className="font-bold text-gray-800 font-mono">{selectedRequest.requestDate}</span>
                   </div>
                   {selectedRequest.isFinancial && (
                     <div>
-                      <span className="text-gray-500 font-medium block">{isRtl ? 'الأثر المالي المترتب:' : 'Financial Impact Value:'}</span>
+                      <span className="text-gray-500 font-medium block">{isRtl ? 'الأثر المالي للطلب:' : 'Associated Financial Impact:'}</span>
                       <span className="font-black text-amber-700 bg-amber-100/60 px-2 py-0.5 rounded font-mono text-sm inline-block">
                         {selectedRequest.valueSAR.toLocaleString()} SAR
                       </span>
                     </div>
                   )}
-                  <div>
-                    <span className="text-gray-500 font-medium block">{isRtl ? 'الحد الأقصى للـ SLA لخطوة المراجعة:' : 'SLA Limit for Stage:'}</span>
-                    <span className="font-bold text-gray-800">{selectedRequest.slaLimitHours} {isRtl ? 'ساعة' : 'hours'}</span>
-                  </div>
                 </div>
               </div>
 
               <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200">
                 <h4 className="font-bold text-gray-900 text-xs border-b pb-1.5 flex items-center gap-1.5">
                   <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-                  {isRtl ? 'مسار الحوكمة ومستوى الاعتماد' : 'Governance & Approval Levels'}
+                  {isRtl ? 'مبررات ومسوغات مقدم المعاملة' : 'Detailed Explanations & Forms'}
                 </h4>
                 <div className="space-y-2.5">
                   <div>
-                    <span className="text-gray-500 font-medium block">{isRtl ? 'مستوى المراجعة الحالي:' : 'Current Step:'}</span>
-                    <span className="font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px] inline-block">
-                      {selectedRequest.currentLevelName}
+                    <span className="text-gray-500 font-medium block">{isRtl ? 'حالة الاعتماد الحالية:' : 'Current Workflow State:'}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusBadgeStyle(selectedRequest.status)}`}>
+                      {selectedRequest.status}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500 font-medium block">{isRtl ? 'المراجع المكلف حالياً بالتوقيع:' : 'Assignee for Signature:'}</span>
-                    <p className="font-bold text-gray-800 flex items-center gap-1 mt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                      {selectedRequest.currentApprover}
-                    </p>
+                    <span className="text-gray-500 font-medium block">{isRtl ? 'الخطوة المكلفة حالياً بالتوقيع:' : 'Pending Stage Assignee:'}</span>
+                    <span className="font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded text-[11px] inline-block mt-0.5">
+                      {selectedRequest.currentLevelName} ({selectedRequest.currentApprover})
+                    </span>
                   </div>
                   <div>
-                    <span className="text-gray-500 font-medium block">{isRtl ? 'بيان الشرح ومسوغات الطلب:' : 'Justification Explanation:'}</span>
+                    <span className="text-gray-500 font-medium block">{isRtl ? 'تفاصيل المبررات:' : 'Justification Text:'}</span>
                     <p className="text-gray-700 bg-gray-50 p-2.5 rounded border border-gray-200 italic leading-relaxed text-[11px]">
-                      "{selectedRequest.details}"
+                      "{selectedRequest.details || 'No additional justification comment recorded.'}"
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Approval History Timeline */}
+            {/* Dynamic fields visualizer */}
+            {selectedRequest.formData && Object.keys(selectedRequest.formData).length > 0 && (
+              <div className="bg-blue-50/40 p-3.5 rounded-xl border border-blue-100 text-xs space-y-1.5">
+                <span className="text-[10px] font-black uppercase text-blue-700 block tracking-wider">{isRtl ? 'قيم المدخلات المتغيرة للنموذج' : 'Structured Custom Form Values'}</span>
+                <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                  {Object.entries(selectedRequest.formData).map(([key, value]) => (
+                    <div key={key} className="bg-white p-1.5 rounded border border-blue-50">
+                      <span className="text-gray-500 block capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span>
+                      <span className="font-bold text-gray-800">{String(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Approval History Signature timeline */}
             <div className="space-y-2.5">
               <h4 className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-green-600" />
-                {isRtl ? 'تاريخ التوقيعات وسجل المراجعة السابق' : 'Audit Trail & Historic Approval Signature Timeline'}
+                {isRtl ? 'سجل الموافقات والتوقيعات الإلكترونية المعتمدة للطلب' : 'Official Cryptographic Approval & Signature Timeline'}
               </h4>
 
               {selectedRequest.history.length === 0 ? (
                 <p className="text-gray-400 italic text-[11px] bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">
-                  {isRtl ? 'لا توجد توقيعات سابقة على هذا الطلب حالياً. الموظف في الخطوة الأولى.' : 'No previous signatures registered on this request. Currently awaiting first approval level.'}
+                  {isRtl ? 'لا توجد توقيعات إلكترونية سابقة على هذا الطلب حالياً.' : 'No signature certificates registered yet.'}
                 </p>
               ) : (
                 <div className="relative pl-6 space-y-3 border-l border-blue-200 ml-2 py-1">
@@ -1333,143 +1331,165 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                       </span>
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 font-mono">
                         <span className="font-bold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">
-                          {hist.levelName}
+                          {hist.levelName || 'Approval Step'}
                         </span>
                         <span className="text-[10px] text-gray-400 font-semibold">{hist.date}</span>
                       </div>
                       <div className="text-[11px] text-gray-700">
                         <span className="font-bold text-gray-800">{hist.approverName}</span>:{' '}
-                        <span className="font-semibold text-green-700">[{hist.action}]</span> — {hist.comment}
+                        <span className="font-bold text-emerald-700">[{hist.action}]</span> — {hist.comment}
                       </div>
+                      {hist.signature && (
+                        <div className="font-mono text-[9px] text-gray-400 border-t border-dashed pt-0.5 flex items-center gap-1">
+                          <Lock className="w-3 h-3 text-emerald-500" />
+                          <span>Signed: <em>{hist.signature}</em></span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Interactive Operations Panel */}
-            {selectedRequest.status === 'Pending' && (
+            {/* Workflow Control Operations Center */}
+            {selectedRequest.status === 'Pending Approval' && (
               <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-100 space-y-3">
-                <div className="flex flex-wrap gap-2">
+                <span className="text-[10px] font-black uppercase text-blue-900 block tracking-wider">
+                  {isRtl ? 'إجراءات الحوكمة الفورية للطلب' : 'Corporate Governance Workflow Console'}
+                </span>
+                
+                <div className="flex flex-wrap gap-1.5">
                   <button
                     onClick={() => setModalAction('approve')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      modalAction === 'approve'
-                        ? 'bg-green-600 text-white border-green-700'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      modalAction === 'approve' ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-gray-700 border-gray-300'
                     }`}
                   >
-                    ✓ {isRtl ? 'اعتماد التوقيع للخطوة التالية' : 'Sign & Forward'}
+                    ✓ {isRtl ? 'توقيع واعتماد' : 'Approve & Sign'}
                   </button>
                   <button
                     onClick={() => setModalAction('reject')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      modalAction === 'reject'
-                        ? 'bg-red-600 text-white border-red-700'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      modalAction === 'reject' ? 'bg-red-600 text-white border-red-700' : 'bg-white text-gray-700 border-gray-300'
                     }`}
                   >
-                    ✗ {isRtl ? 'رفض الطلب نهائياً' : 'Reject Request'}
+                    ✗ {isRtl ? 'رفض المعاملة' : 'Reject Request'}
                   </button>
                   <button
                     onClick={() => setModalAction('comment')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      modalAction === 'comment'
-                        ? 'bg-blue-600 text-white border-blue-700'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      modalAction === 'comment' ? 'bg-yellow-600 text-white border-yellow-700' : 'bg-white text-gray-700 border-gray-300'
                     }`}
                   >
-                    ✎ {isRtl ? 'إضافة ملاحظة وتوجيه' : 'Add Comments'}
-                  </button>
-                  <button
-                    onClick={() => setModalAction('escalate')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      modalAction === 'escalate'
-                        ? 'bg-amber-600 text-white border-amber-700'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    ⚠ {isRtl ? 'تصعيد للإدارة التنفيذية' : 'Escalate (SLA)'}
+                    ✎ {isRtl ? 'إعادة للتعديل للتصحيح' : 'Return for Correction'}
                   </button>
                   <button
                     onClick={() => setModalAction('delegate')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                      modalAction === 'delegate'
-                        ? 'bg-purple-600 text-white border-purple-700'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      modalAction === 'delegate' ? 'bg-purple-600 text-white border-purple-700' : 'bg-white text-gray-700 border-gray-300'
                     }`}
                   >
-                    ↱ {isRtl ? 'تفويض مراجع بديل' : 'Delegate Review'}
+                    ↱ {isRtl ? 'تفويض مراجع آخر' : 'Delegate Review'}
+                  </button>
+                  <button
+                    onClick={() => setModalAction('escalate')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                      modalAction === 'escalate' ? 'bg-amber-600 text-white border-amber-700' : 'bg-white text-gray-700 border-gray-300'
+                    }`}
+                  >
+                    ⚠ {isRtl ? 'تصعيد طارئ (SLA)' : 'Escalate (SLA Trigger)'}
                   </button>
                 </div>
 
-                {/* Sub Action Inputs */}
                 {modalAction === 'delegate' && (
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-gray-500 block">
-                      {isRtl ? 'اختر الموظف/المدير البديل لتفويضه بالصلاحية:' : 'Select Delegate Target User Name:'}
-                    </label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500 block">{isRtl ? 'اسم الموظف أو المدير المفوض:' : 'Target Delegate User Name:'}</label>
                     <select
                       value={delegationTarget}
                       onChange={(e) => setDelegationTarget(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-800"
+                      className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs"
                     >
-                      <option value="">{isRtl ? '— حدد مدير للتفويض —' : '— Select manager/user —'}</option>
-                      <option value="Ahmed Al-Dossary">Ahmed Al-Dossary (Supervisor)</option>
-                      <option value="Sarah Khalid Al-Ghamdi">Sarah Khalid Al-Ghamdi (HR Manager)</option>
-                      <option value="John Michael Doe">John Michael Doe (Lead Engineer)</option>
-                      <option value="Mohammad Salem Al-Qahtani">Mohammad Salem Al-Qahtani (Finance Director)</option>
-                      <option value="Tariq Abdulaziz Al-Otaibi">Tariq Abdulaziz Al-Otaibi (General Manager)</option>
+                      <option value="">-- Choose manager --</option>
+                      <option value="Ahmed Faraj Al-Dossary (Supervisor)">Ahmed Faraj Al-Dossary (Supervisor)</option>
+                      <option value="Sarah Khalid Al-Ghamdi (HR Mgr)">Sarah Khalid Al-Ghamdi (HR Manager)</option>
+                      <option value="Mohammad Salem Al-Qahtani (Finance Dir)">Mohammad Salem Al-Qahtani (Finance Manager)</option>
+                      <option value="Tariq Abdulaziz Al-Otaibi (General Manager)">Tariq Abdulaziz Al-Otaibi (General Manager)</option>
                     </select>
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-gray-500 block">
-                    {isRtl ? 'نص التعليق الإداري والتوجيه:' : 'Operational Directive / Review Comments:'}
-                  </label>
+                {/* ELECTRONIC SIGNATURE PAD AND TYPING PREVIEW */}
+                <div className="space-y-1.5 border-t pt-2 border-blue-100">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-gray-500 block">{isRtl ? 'التوقيع الإلكتروني الموثق (Electronic Signature):' : 'Electronic Signature Pad:'}</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSignatureType('type')}
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${signatureType === 'type' ? 'bg-blue-200 text-blue-800' : 'bg-gray-100'}`}
+                      >
+                        Type Sign
+                      </button>
+                      <button
+                        onClick={() => setSignatureType('draw')}
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${signatureType === 'draw' ? 'bg-blue-200 text-blue-800' : 'bg-gray-100'}`}
+                      >
+                        Draw Sign
+                      </button>
+                    </div>
+                  </div>
+
+                  {signatureType === 'type' ? (
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        placeholder="Type your full name to generate sign"
+                        value={electronicSignature}
+                        onChange={(e) => setElectronicSignature(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-gray-300 bg-white rounded-lg text-xs"
+                      />
+                      {electronicSignature && (
+                        <div className="p-3 bg-gray-50 border rounded-lg border-dashed text-center">
+                          <span className="font-serif italic text-lg tracking-wider text-blue-800 select-none block">
+                            {electronicSignature}
+                          </span>
+                          <span className="text-[8px] text-gray-400 font-mono block mt-1">SECURE VERIFIED ID CODE: {selectedRequest.id}-SIG-{Date.now().toString().slice(-6)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-gray-50 border rounded-lg border-dashed text-center cursor-crosshair space-y-2">
+                      <p className="text-[10px] text-gray-400 italic">{isRtl ? 'ارسم توقيعك هنا عبر لوحة اللمس أو الماوس' : 'Simulated Canvas: Touch or click to signature pad'}</p>
+                      <div className="w-full h-12 bg-white border rounded flex items-center justify-center font-serif text-lg tracking-widest text-indigo-700 italic select-none">
+                        ✍️ {employees.find(e => e.id === selectedEmployeeId)?.fullName.slice(0, 3).toUpperCase() || 'SIGN'} / {selectedRequest.id}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Confirm with initials or type to record drawing"
+                        value={electronicSignature}
+                        onChange={(e) => setElectronicSignature(e.target.value)}
+                        className="w-full px-2 py-1 bg-white border rounded text-[10px]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500 block">{isRtl ? 'الملاحظات الإدارية والتوجيهات:' : 'Reviewer Decision Comments:'}</label>
                   <textarea
                     rows={2}
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    placeholder={
-                      modalAction === 'approve'
-                        ? isRtl ? 'توجيه بالموافقة (اختياري)...' : 'Approval notes (optional)...'
-                        : modalAction === 'reject'
-                        ? isRtl ? 'سبب الرفض الإلزامي...' : 'Required rejection reasons...'
-                        : isRtl ? 'ملاحظات وتوجيهات لمركز الحوكمة...' : 'Directives or notes...'
-                    }
-                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-800 focus:ring-1 focus:ring-blue-500 focus:outline-hidden"
+                    placeholder={isRtl ? 'أدخل تفاصيل ومبررات القرار الإداري للمستقبل...' : 'Enter comments explaining approval/rejection or return reason...'}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold"
                   />
                 </div>
 
-                {/* Action trigger button */}
-                <div className="flex justify-end gap-2 border-t pt-2 border-blue-200">
+                <div className="flex justify-end gap-2 border-t border-blue-100 pt-2.5">
                   <button
-                    onClick={() => {
-                      if (modalAction === 'approve') {
-                        handleApprove(selectedRequest.id, commentText);
-                      } else if (modalAction === 'reject') {
-                        handleReject(selectedRequest.id, commentText);
-                      } else if (modalAction === 'escalate') {
-                        handleEscalate(selectedRequest.id, commentText);
-                      } else if (modalAction === 'delegate') {
-                        handleDelegate(selectedRequest.id, delegationTarget, commentText);
-                      } else if (modalAction === 'comment') {
-                        handleReturn(selectedRequest.id, commentText); // Return / Correct
-                      }
-                    }}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold text-white shadow-2xs cursor-pointer ${
-                      modalAction === 'reject'
-                        ? 'bg-red-600 hover:bg-red-700'
-                        : modalAction === 'escalate'
-                        ? 'bg-amber-600 hover:bg-amber-700'
-                        : modalAction === 'delegate'
-                        ? 'bg-purple-600 hover:bg-purple-700'
-                        : 'bg-green-600 hover:bg-green-700'
-                    }`}
+                    onClick={() => handleWorkflowAction(selectedRequest.id, modalAction)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer shadow-xs"
                   >
-                    {isRtl ? 'حفظ وتثبيت التوقيع' : 'Commit Action & Record Sign'}
+                    {isRtl ? 'تأكيد وحفظ القرار والقرصنة' : 'Confirm Workflow Decision'}
                   </button>
                 </div>
               </div>
@@ -1482,10 +1502,11 @@ export default function EnterpriseRequestsCenter({ isRtl, employees, onAddNotifi
                   setSelectedRequest(null);
                   setCommentText('');
                   setDelegationTarget('');
+                  setElectronicSignature('');
                 }}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg text-xs transition-all cursor-pointer"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-lg text-xs cursor-pointer"
               >
-                {isRtl ? 'إغلاق نافذة التفاصيل' : 'Close Details'}
+                {isRtl ? 'إغلاق نافذة التدقيق' : 'Close Details'}
               </button>
             </div>
           </div>

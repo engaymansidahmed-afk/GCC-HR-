@@ -288,3 +288,87 @@ export interface SystemSettings {
   positions: string[];
   branches: string[];
 }
+
+export interface PayrollEmployeeItem {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  position: string;
+  branch: string;
+  project: string;
+  employmentType: string;
+  basicSalary: number;
+  housingAllowance: number;
+  transportationAllowance: number;
+  communicationAllowance: number;
+  foodAllowance: number;
+  otherAllowances: number;
+  overtime: number;
+  bonuses: number;
+  incentives: number;
+  commissions: number;
+  loanDeductions: number;
+  salaryAdvanceDeductions: number;
+  gosi: number;
+  taxes: number;
+  otherDeductions: number;
+  grossSalary: number;
+  netSalary: number;
+  paymentMethod: string;
+  paymentStatus: 'Paid' | 'Pending';
+  paymentDate?: string;
+}
+
+export interface PayrollRun {
+  id: string; // e.g., PAY-2026-06
+  month: string; // e.g., "06"
+  year: number; // e.g., 2026
+  status: 'Draft' | 'Approved_Officer' | 'Approved_Finance' | 'Approved_HR' | 'Approved_GM' | 'Locked';
+  approvalWorkflow: {
+    officer?: { status: 'Approved' | 'Rejected'; by: string; date: string; comment?: string };
+    finance?: { status: 'Approved' | 'Rejected'; by: string; date: string; comment?: string };
+    hr?: { status: 'Approved' | 'Rejected'; by: string; date: string; comment?: string };
+    gm?: { status: 'Approved' | 'Rejected'; by: string; date: string; comment?: string };
+  };
+  employees: PayrollEmployeeItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApprovalHistoryItem {
+  level: number;
+  levelName: string;
+  approverName: string;
+  action: 'Approved' | 'Rejected' | 'Returned' | 'Delegated' | 'Escalated' | 'Returned for Correction' | 'Submitted';
+  date: string;
+  comment: string;
+  signature?: string; // Electronic signature representation
+}
+
+export interface EnterpriseRequest {
+  id: string; // Request Number (e.g., REQ-2026-101)
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  branch: string;
+  jobTitle: string;
+  category: 'HR' | 'Payroll' | 'Administrative' | 'Assets & Equipment' | 'IT' | 'Finance';
+  requestType: string;
+  requestDate: string;
+  status: 'Draft' | 'Submitted' | 'Pending Approval' | 'Approved' | 'Rejected' | 'Returned for Correction' | 'Cancelled' | 'Completed';
+  priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  currentLevel: number; // 1: Employee, 2: Direct Supervisor, 3: Department Manager, 4: HR Manager, 5: Finance Manager, 6: General Manager, 7: Completed
+  currentLevelName: string;
+  currentApprover: string;
+  isFinancial: boolean;
+  valueSAR: number;
+  details: string;
+  slaLimitHours: number;
+  pendingDays: number;
+  submissionDate: string;
+  lastActionDate: string;
+  history: ApprovalHistoryItem[];
+  formData: Record<string, any>;
+}
+
+
