@@ -32,6 +32,29 @@ interface PayrollLoanViewProps {
   onRefresh: () => void;
 }
 
+const handleResponse = async (res: Response, fallbackMessage: string) => {
+  const contentType = res.headers.get('content-type');
+  if (!res.ok) {
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        const errData = await res.json();
+        throw new Error(errData.error || errData.message || fallbackMessage);
+      } catch (e: any) {
+        throw new Error(e.message || fallbackMessage);
+      }
+    } else {
+      const errorText = await res.text().catch(() => '');
+      throw new Error(`${fallbackMessage} (Status ${res.status}): ${errorText.substring(0, 100) || 'Unknown Server Error'}`);
+    }
+  }
+
+  if (contentType && contentType.includes('application/json')) {
+    return await res.json();
+  }
+  
+  throw new Error(`Expected JSON response, but received non-JSON (Status ${res.status})`);
+};
+
 export default function PayrollLoanView({
   employees,
   loans,
@@ -106,7 +129,7 @@ export default function PayrollLoanView({
         })
       });
 
-      if (!res.ok) throw new Error('Loan request submission failed');
+      await handleResponse(res, 'Loan request submission failed');
       onRefresh();
       setLoanAmount('');
       alert(isRtl ? 'تم تقديم طلب السلفة بنجاح!' : 'Loan request submitted successfully!');
@@ -131,7 +154,7 @@ export default function PayrollLoanView({
         })
       });
 
-      if (!res.ok) throw new Error('Action execution failed');
+      await handleResponse(res, 'Action execution failed');
       onRefresh();
     } catch (e: any) {
       alert(e.message);
@@ -154,12 +177,11 @@ export default function PayrollLoanView({
         })
       });
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to generate payroll register');
-      }
+      const responseData = await handleResponse(res, 'Failed to generate payroll register');
+      const newRun = (responseData && typeof responseData === 'object' && 'success' in responseData && responseData.success)
+        ? responseData.data
+        : responseData;
 
-      const newRun = await res.json();
       setShowGenerateModal(false);
       setSelectedRunId(newRun.id);
       onRefresh();
@@ -193,7 +215,7 @@ export default function PayrollLoanView({
         })
       });
 
-      if (!res.ok) throw new Error('Failed to update employee payroll row');
+      await handleResponse(res, 'Failed to update employee payroll row');
       setEditItem(null);
       onRefresh();
     } catch (err: any) {
@@ -218,7 +240,7 @@ export default function PayrollLoanView({
         })
       });
 
-      if (!res.ok) throw new Error('Workflow approval execution failed');
+      await handleResponse(res, 'Workflow approval execution failed');
       setShowWorkflowCommentModal(false);
       setWorkflowComment('');
       setPendingWorkflowStep(null);
@@ -244,7 +266,7 @@ export default function PayrollLoanView({
         })
       });
 
-      if (!res.ok) throw new Error('Reopen operation failed');
+      await handleResponse(res, 'Reopen operation failed');
       onRefresh();
     } catch (err: any) {
       alert(err.message);
@@ -267,7 +289,7 @@ export default function PayrollLoanView({
         })
       });
 
-      if (!res.ok) throw new Error('Cancel operation failed');
+      await handleResponse(res, 'Cancel operation failed');
       setSelectedRunId('');
       onRefresh();
     } catch (err: any) {

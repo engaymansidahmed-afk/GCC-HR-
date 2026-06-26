@@ -645,339 +645,456 @@ app.post('/api/loans/:id/action', (req, res) => {
 // ==========================================
 
 // Get all payroll runs
-app.get('/api/payroll', (req, res) => {
+app.get('/api/payroll', (req, res, next) => {
   try {
+    console.log(`[INCOMING REQUEST] GET /api/payroll`);
+    console.log(`[DATABASE QUERY] Fetching payroll runs...`);
     const state = db.get();
+    console.log(`[RESPONSE GENERATED] Returning ${state.payrollRuns?.length || 0} payroll runs.`);
     res.json(state.payrollRuns || []);
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to retrieve payroll runs' });
+    console.error(`[PAYROLL SERVICE ERROR] GET /api/payroll failed:`, err);
+    next(err);
   }
 });
 
 // Generate a new payroll run for a specific month and year
-app.post('/api/payroll/generate', (req, res) => {
-  const { month, year, generatedBy, generatedByName, role, ip } = req.body;
-  if (!month || !year) {
-    return res.status(400).json({ error: 'Month and year are required' });
-  }
+app.post('/api/payroll/generate', (req, res, next) => {
+  try {
+    const { month, year, generatedBy, generatedByName, role, ip } = req.body;
+    
+    console.log(`[INCOMING REQUEST] POST /api/payroll/generate`);
+    console.log(`[PAYROLL CALCULATION] Validating requested period: Year ${year}, Month ${month}`);
+    
+    // 9. Validation
+    if (!month || !year) {
+      console.warn(`[PAYROLL CALCULATION] Validation failed: Month and year are required`);
+      return res.status(400).json({ success: false, error: 'Month and year are required' });
+    }
+    
+    const parsedMonth = parseInt(month, 10);
+    if (isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
+      console.warn(`[PAYROLL CALCULATION] Validation failed: Invalid month: ${month}`);
+      return res.status(400).json({ success: false, error: 'Invalid month format. Must be between 01 and 12.' });
+    }
+    
+    const parsedYear = parseInt(year, 10);
+    if (isNaN(parsedYear) || parsedYear < 2000 || parsedYear > 2100) {
+      console.warn(`[PAYROLL CALCULATION] Validation failed: Invalid year: ${year}`);
+      return res.status(400).json({ success: false, error: 'Invalid year format.' });
+    }
 
-  const runId = `PAY-${year}-${month}`;
-  const state = db.get();
-  const exists = (state.payrollRuns || []).find(r => r.id === runId);
-  if (exists) {
-    return res.status(400).json({ error: `Payroll run for ${year}-${month} already exists.` });
-  }
+    const runId = `PAY-${year}-${month}`;
+    
+    console.log(`[DATABASE QUERY] Fetching current database state...`);
+    const state = db.get();
+    
+    if (!state.employees || state.employees.length === 0) {
+      console.warn(`[PAYROLL CALCULATION] Validation failed: No employee records found`);
+      return res.status(400).json({ success: false, error: 'No employee records found in the database. Please add employees first.' });
+    }
 
-  const activeEmployees = state.employees.filter(e => e.status === 'Active' || e.status === 'On Leave');
-  const items = activeEmployees.map(emp => {
-    const basic = emp.basicSalary || 0;
-    const housing = emp.housingAllowance || 0;
-    const transport = emp.transportationAllowance || 0;
-    const comm = emp.communicationAllowance || 0;
-    const food = emp.foodAllowance || 0;
+    const exists = (state.payrollRuns || []).find(r => r.id === runId);
+    if (exists) {
+      console.warn(`[PAYROLL CALCULATION] Validation failed: Payroll run ${runId} already exists`);
+      return res.status(400).json({ success: false, error: `Payroll run for ${year}-${month} already exists.` });
+    }
 
-    // Find active loan
-    const activeLoan = state.loans.find(l => l.employeeId === emp.id && l.status === 'Active');
-    const loanDeduction = activeLoan ? Math.min(activeLoan.monthlyInstallment, activeLoan.outstandingBalance) : 0;
+    console.log(`[PAYROLL CALCULATION] Starting calculations for active employees...`);
+    const activeEmployees = state.employees.filter(e => e.status === 'Active' || e.status === 'On Leave');
+    console.log(`[PAYROLL CALCULATION] Found ${activeEmployees.length} active/on-leave employees to process`);
 
-    // GOSI
-    const isSaudi = emp.nationality === 'Saudi Arabia';
-    const gosiDeduction = isSaudi ? Math.round((basic + housing) * 0.0975) : 0;
+    const items = activeEmployees.map(emp => {
+      const basic = emp.basicSalary || 0;
+      const housing = emp.housingAllowance || 0;
+      const transport = emp.transportationAllowance || 0;
+      const comm = emp.communicationAllowance || 0;
+      const food = emp.foodAllowance || 0;
 
-    const totalEarnings = basic + housing + transport + comm + food;
-    const totalDeductions = loanDeduction + gosiDeduction;
-    const netSalary = totalEarnings - totalDeductions;
+      // Find active loan
+      const activeLoan = (state.loans || []).find(l => l.employeeId === emp.id && l.status === 'Active');
+      const loanDeduction = activeLoan ? Math.min(activeLoan.monthlyInstallment, activeLoan.outstandingBalance) : 0;
 
-    // Branch assignment fallback
-    const branchName = emp.nationality === 'Saudi Arabia' ? 'Riyadh (HQ)' : 'NEOM Site Office';
+      // GOSI
+      const isSaudi = emp.nationality === 'Saudi Arabia';
+      const gosiDeduction = isSaudi ? Math.round((basic + housing) * 0.0975) : 0;
 
-    return {
-      employeeId: emp.id,
-      employeeName: emp.fullName,
-      department: emp.department || 'Unassigned',
-      position: emp.position || 'Staff',
-      branch: branchName,
-      project: emp.projectAssignment || 'HQ',
-      employmentType: emp.employmentType || 'Full-Time',
-      basicSalary: basic,
-      housingAllowance: housing,
-      transportationAllowance: transport,
-      communicationAllowance: comm,
-      foodAllowance: food,
-      otherAllowances: 0,
-      overtime: 0,
-      bonuses: 0,
-      incentives: 0,
-      commissions: 0,
-      loanDeductions: loanDeduction,
-      salaryAdvanceDeductions: 0,
-      gosi: gosiDeduction,
-      taxes: 0,
-      otherDeductions: 0,
-      grossSalary: totalEarnings,
-      netSalary: netSalary,
-      paymentMethod: 'Bank Transfer (WPS)',
-      paymentStatus: 'Pending'
+      const totalEarnings = basic + housing + transport + comm + food;
+      const totalDeductions = loanDeduction + gosiDeduction;
+      const netSalary = totalEarnings - totalDeductions;
+
+      // Branch assignment fallback
+      const branchName = emp.nationality === 'Saudi Arabia' ? 'Riyadh (HQ)' : 'NEOM Site Office';
+
+      return {
+        employeeId: emp.id,
+        employeeName: emp.fullName,
+        department: emp.department || 'Unassigned',
+        position: emp.position || 'Staff',
+        branch: branchName,
+        project: emp.projectAssignment || 'HQ',
+        employmentType: emp.employmentType || 'Full-Time',
+        basicSalary: basic,
+        housingAllowance: housing,
+        transportationAllowance: transport,
+        communicationAllowance: comm,
+        foodAllowance: food,
+        otherAllowances: 0,
+        overtime: 0,
+        bonuses: 0,
+        incentives: 0,
+        commissions: 0,
+        loanDeductions: loanDeduction,
+        salaryAdvanceDeductions: 0,
+        gosi: gosiDeduction,
+        taxes: 0,
+        otherDeductions: 0,
+        grossSalary: totalEarnings,
+        netSalary: netSalary,
+        paymentMethod: 'Bank Transfer (WPS)',
+        paymentStatus: 'Pending'
+      };
+    });
+
+    const newRun = {
+      id: runId,
+      month,
+      year: Number(year),
+      status: 'Draft',
+      approvalWorkflow: {},
+      employees: items,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
-  });
 
-  const newRun = {
-    id: runId,
-    month,
-    year: Number(year),
-    status: 'Draft',
-    approvalWorkflow: {},
-    employees: items,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
+    console.log(`[DATABASE QUERY] Saving new payroll run ${runId} to database...`);
+    db.update((data) => {
+      if (!data.payrollRuns) data.payrollRuns = [];
+      data.payrollRuns.unshift(newRun as any);
+    });
 
-  db.update((data) => {
-    if (!data.payrollRuns) data.payrollRuns = [];
-    data.payrollRuns.unshift(newRun as any);
-  });
+    db.logActivity(
+      generatedBy || 'ADMIN-001',
+      generatedByName || 'Sarah Khalid Al-Ghamdi',
+      role || 'HR Manager',
+      'Payroll Run' as any,
+      'Payroll',
+      `Generated draft payroll run ${runId} with ${items.length} employees included.`,
+      ip || '127.0.0.1'
+    );
 
-  db.logActivity(
-    generatedBy || 'ADMIN-001',
-    generatedByName || 'Sarah Khalid Al-Ghamdi',
-    role || 'HR Manager',
-    'Payroll Run' as any,
-    'Payroll',
-    `Generated draft payroll run ${runId} with ${items.length} employees included.`,
-    ip || '127.0.0.1'
-  );
+    db.addNotification(
+      'Payroll Run Generated',
+      `New payroll run register created for period ${year}-${month}. Pending workflow approvals.`,
+      'info',
+      'Payroll'
+    );
 
-  db.addNotification(
-    'Payroll Run Generated',
-    `New payroll run register created for period ${year}-${month}. Pending workflow approvals.`,
-    'info',
-    'Payroll'
-  );
-
-  res.status(201).json(newRun);
+    console.log(`[RESPONSE GENERATED] Successfully generated payroll run ${runId}`);
+    res.status(201).json({
+      success: true,
+      message: "Payroll Register generated successfully.",
+      data: newRun
+    });
+  } catch (err) {
+    console.error(`[PAYROLL CALCULATION ERROR] Error generating payroll run:`, err);
+    next(err);
+  }
 });
 
 // Update single line item details in draft payroll run (overtime, bonuses, other allowances, commissions, other deductions)
-app.post('/api/payroll/:id/update-row', (req, res) => {
-  const { id } = req.params;
-  const { employeeId, overtime, bonuses, incentives, commissions, otherAllowances, otherDeductions, salaryAdvanceDeductions, modifiedBy, modifiedByName, role, ip } = req.body;
+app.post('/api/payroll/:id/update-row', (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { employeeId, overtime, bonuses, incentives, commissions, otherAllowances, otherDeductions, salaryAdvanceDeductions, modifiedBy, modifiedByName, role, ip } = req.body;
 
-  let updatedRun: any = null;
-  db.update((data) => {
-    const run = data.payrollRuns.find(r => r.id === id);
-    if (!run) return;
-    if (run.status !== 'Draft') return; // Cannot edit unless draft
+    console.log(`[INCOMING REQUEST] POST /api/payroll/${id}/update-row`);
+    console.log(`[PAYROLL CALCULATION] Updating line item for employee: ${employeeId} in run: ${id}`);
 
-    const emp = run.employees.find(e => e.employeeId === employeeId);
-    if (!emp) return;
+    let updatedRun: any = null;
+    console.log(`[DATABASE QUERY] Querying and updating database state...`);
+    db.update((data) => {
+      if (!data.payrollRuns) data.payrollRuns = [];
+      const run = data.payrollRuns.find(r => r.id === id);
+      if (!run) {
+        console.warn(`[PAYROLL CALCULATION] Payroll run ${id} not found`);
+        return;
+      }
+      if (run.status !== 'Draft') {
+        console.warn(`[PAYROLL CALCULATION] Payroll run ${id} is not in Draft status`);
+        return; // Cannot edit unless draft
+      }
 
-    emp.overtime = Number(overtime) || 0;
-    emp.bonuses = Number(bonuses) || 0;
-    emp.incentives = Number(incentives) || 0;
-    emp.commissions = Number(commissions) || 0;
-    emp.otherAllowances = Number(otherAllowances) || 0;
-    emp.otherDeductions = Number(otherDeductions) || 0;
-    emp.salaryAdvanceDeductions = Number(salaryAdvanceDeductions) || 0;
+      const emp = run.employees.find(e => e.employeeId === employeeId);
+      if (!emp) {
+        console.warn(`[PAYROLL CALCULATION] Employee ${employeeId} not found in run ${id}`);
+        return;
+      }
 
-    // Recompute gross and net
-    const totalEarnings = emp.basicSalary + emp.housingAllowance + emp.transportationAllowance + emp.communicationAllowance + emp.foodAllowance + emp.otherAllowances + emp.overtime + emp.bonuses + emp.incentives + emp.commissions;
-    const totalDeductions = emp.loanDeductions + emp.salaryAdvanceDeductions + emp.gosi + emp.taxes + emp.otherDeductions;
-    emp.grossSalary = totalEarnings;
-    emp.netSalary = totalEarnings - totalDeductions;
+      emp.overtime = Number(overtime) || 0;
+      emp.bonuses = Number(bonuses) || 0;
+      emp.incentives = Number(incentives) || 0;
+      emp.commissions = Number(commissions) || 0;
+      emp.otherAllowances = Number(otherAllowances) || 0;
+      emp.otherDeductions = Number(otherDeductions) || 0;
+      emp.salaryAdvanceDeductions = Number(salaryAdvanceDeductions) || 0;
 
-    run.updatedAt = new Date().toISOString();
-    updatedRun = run;
-  });
+      // Recompute gross and net
+      const totalEarnings = emp.basicSalary + emp.housingAllowance + emp.transportationAllowance + emp.communicationAllowance + emp.foodAllowance + emp.otherAllowances + emp.overtime + emp.bonuses + emp.incentives + emp.commissions;
+      const totalDeductions = emp.loanDeductions + emp.salaryAdvanceDeductions + emp.gosi + emp.taxes + emp.otherDeductions;
+      emp.grossSalary = totalEarnings;
+      emp.netSalary = totalEarnings - totalDeductions;
 
-  if (!updatedRun) {
-    return res.status(400).json({ error: 'Failed to update row. Run may be approved/locked or not found.' });
+      run.updatedAt = new Date().toISOString();
+      updatedRun = run;
+    });
+
+    if (!updatedRun) {
+      return res.status(400).json({ success: false, error: 'Failed to update row. Run may be approved/locked or not found.' });
+    }
+
+    db.logActivity(
+      modifiedBy || 'ADMIN-001',
+      modifiedByName || 'Sarah Khalid Al-Ghamdi',
+      role || 'HR Manager',
+      'Update',
+      'Payroll',
+      `Modified payroll details for Employee ID ${employeeId} in run ${id}.`,
+      ip || '127.0.0.1'
+    );
+
+    console.log(`[RESPONSE GENERATED] Successfully updated row for employee ${employeeId}`);
+    res.json({
+      success: true,
+      message: "Payroll row updated successfully.",
+      data: updatedRun
+    });
+  } catch (err) {
+    console.error(`[PAYROLL CALCULATION ERROR] Error updating row:`, err);
+    next(err);
   }
-
-  db.logActivity(
-    modifiedBy || 'ADMIN-001',
-    modifiedByName || 'Sarah Khalid Al-Ghamdi',
-    role || 'HR Manager',
-    'Update',
-    'Payroll',
-    `Modified payroll details for Employee ID ${employeeId} in run ${id}.`,
-    ip || '127.0.0.1'
-  );
-
-  res.json(updatedRun);
 });
 
 // Approve payroll sequentially
-app.post('/api/payroll/:id/approve', (req, res) => {
-  const { id } = req.params;
-  const { step, approverId, approverName, role, comment, ip } = req.body;
+app.post('/api/payroll/:id/approve', (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { step, approverId, approverName, role, comment, ip } = req.body;
 
-  if (!step || !approverId || !approverName) {
-    return res.status(400).json({ error: 'Step and approver details are required.' });
-  }
+    console.log(`[INCOMING REQUEST] POST /api/payroll/${id}/approve`);
+    console.log(`[PAYROLL CALCULATION] Approving step: ${step} for run: ${id}`);
 
-  let updatedRun: any = null;
-  db.update((data) => {
-    const run = data.payrollRuns.find(r => r.id === id);
-    if (!run) return;
-
-    if (step === 'officer') {
-      run.status = 'Approved_Officer';
-      run.approvalWorkflow.officer = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
-    } else if (step === 'finance') {
-      run.status = 'Approved_Finance';
-      run.approvalWorkflow.finance = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
-    } else if (step === 'hr') {
-      run.status = 'Approved_HR';
-      run.approvalWorkflow.hr = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
-    } else if (step === 'gm') {
-      run.status = 'Locked'; // Final step locks the run
-      run.approvalWorkflow.gm = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
-
-      // Deduct loan balances and pay employees
-      run.employees.forEach(empItem => {
-        empItem.paymentStatus = 'Paid';
-        empItem.paymentDate = new Date().toISOString().split('T')[0];
-
-        if (empItem.loanDeductions > 0) {
-          const activeLoan = data.loans.find(l => l.employeeId === empItem.employeeId && l.status === 'Active');
-          if (activeLoan) {
-            activeLoan.outstandingBalance = Math.max(0, activeLoan.outstandingBalance - empItem.loanDeductions);
-            if (activeLoan.outstandingBalance <= 0) {
-              activeLoan.status = 'Closed';
-            }
-            if (!activeLoan.installmentHistory) {
-              activeLoan.installmentHistory = [];
-            }
-            activeLoan.installmentHistory.push({
-              month: `${run.year}-${run.month}`,
-              amountPaid: empItem.loanDeductions,
-              date: new Date().toISOString().split('T')[0]
-            });
-          }
-        }
-      });
+    if (!step || !approverId || !approverName) {
+      console.warn(`[PAYROLL CALCULATION] Validation failed: Step, approverId, and approverName are required`);
+      return res.status(400).json({ success: false, error: 'Step and approver details are required.' });
     }
 
-    run.updatedAt = new Date().toISOString();
-    updatedRun = run;
-  });
+    let updatedRun: any = null;
+    console.log(`[DATABASE QUERY] Executing approval transaction...`);
+    db.update((data) => {
+      if (!data.payrollRuns) data.payrollRuns = [];
+      const run = data.payrollRuns.find(r => r.id === id);
+      if (!run) return;
 
-  if (!updatedRun) {
-    return res.status(404).json({ error: 'Payroll run not found' });
+      if (step === 'officer') {
+        run.status = 'Approved_Officer';
+        run.approvalWorkflow.officer = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
+      } else if (step === 'finance') {
+        run.status = 'Approved_Finance';
+        run.approvalWorkflow.finance = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
+      } else if (step === 'hr') {
+        run.status = 'Approved_HR';
+        run.approvalWorkflow.hr = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
+      } else if (step === 'gm') {
+        run.status = 'Locked'; // Final step locks the run
+        run.approvalWorkflow.gm = { status: 'Approved', by: approverName, date: new Date().toISOString().split('T')[0], comment };
+
+        // Deduct loan balances and pay employees
+        run.employees.forEach(empItem => {
+          empItem.paymentStatus = 'Paid';
+          empItem.paymentDate = new Date().toISOString().split('T')[0];
+
+          if (empItem.loanDeductions > 0) {
+            if (!data.loans) data.loans = [];
+            const activeLoan = data.loans.find(l => l.employeeId === empItem.employeeId && l.status === 'Active');
+            if (activeLoan) {
+              activeLoan.outstandingBalance = Math.max(0, activeLoan.outstandingBalance - empItem.loanDeductions);
+              if (activeLoan.outstandingBalance <= 0) {
+                activeLoan.status = 'Closed';
+              }
+              if (!activeLoan.installmentHistory) {
+                activeLoan.installmentHistory = [];
+              }
+              activeLoan.installmentHistory.push({
+                month: `${run.year}-${run.month}`,
+                amountPaid: empItem.loanDeductions,
+                date: new Date().toISOString().split('T')[0]
+              });
+            }
+          }
+        });
+      }
+
+      run.updatedAt = new Date().toISOString();
+      updatedRun = run;
+    });
+
+    if (!updatedRun) {
+      return res.status(404).json({ success: false, error: 'Payroll run not found' });
+    }
+
+    db.logActivity(
+      approverId,
+      approverName,
+      role || 'Super Administrator',
+      'Approval',
+      'Payroll',
+      `Approved payroll run ${id} at step: ${step}. Comment: ${comment || 'Approved'}`,
+      ip || '127.0.0.1'
+    );
+
+    db.addNotification(
+      'Payroll Approved',
+      `Payroll run ${id} approved by ${approverName} (${role}) for step ${step}.`,
+      'success',
+      'Payroll'
+    );
+
+    console.log(`[RESPONSE GENERATED] Successfully approved run ${id} at step ${step}`);
+    res.json({
+      success: true,
+      message: `Payroll run approved successfully for step: ${step}.`,
+      data: updatedRun
+    });
+  } catch (err) {
+    console.error(`[PAYROLL CALCULATION ERROR] Error approving workflow step:`, err);
+    next(err);
   }
-
-  db.logActivity(
-    approverId,
-    approverName,
-    role || 'Super Administrator',
-    'Approval',
-    'Payroll',
-    `Approved payroll run ${id} at step: ${step}. Comment: ${comment || 'Approved'}`,
-    ip || '127.0.0.1'
-  );
-
-  db.addNotification(
-    'Payroll Approved',
-    `Payroll run ${id} approved by ${approverName} (${role}) for step ${step}.`,
-    'success',
-    'Payroll'
-  );
-
-  res.json(updatedRun);
 });
 
 // Reopen approved/locked payroll to Draft status
-app.post('/api/payroll/:id/reopen', (req, res) => {
-  const { id } = req.params;
-  const { userId, userName, role, comment, ip } = req.body;
+app.post('/api/payroll/:id/reopen', (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { userId, userName, role, comment, ip } = req.body;
 
-  let updatedRun: any = null;
-  db.update((data) => {
-    const run = data.payrollRuns.find(r => r.id === id);
-    if (!run) return;
+    console.log(`[INCOMING REQUEST] POST /api/payroll/${id}/reopen`);
 
-    run.status = 'Draft';
-    run.approvalWorkflow = {};
-    run.employees.forEach(e => {
-      e.paymentStatus = 'Pending';
-      delete e.paymentDate;
+    let updatedRun: any = null;
+    console.log(`[DATABASE QUERY] Reopening payroll run ${id}...`);
+    db.update((data) => {
+      if (!data.payrollRuns) data.payrollRuns = [];
+      const run = data.payrollRuns.find(r => r.id === id);
+      if (!run) return;
+
+      run.status = 'Draft';
+      run.approvalWorkflow = {};
+      run.employees.forEach(e => {
+        e.paymentStatus = 'Pending';
+        delete e.paymentDate;
+      });
+      run.updatedAt = new Date().toISOString();
+      updatedRun = run;
     });
-    run.updatedAt = new Date().toISOString();
-    updatedRun = run;
-  });
 
-  if (!updatedRun) {
-    return res.status(404).json({ error: 'Payroll run not found' });
+    if (!updatedRun) {
+      return res.status(404).json({ success: false, error: 'Payroll run not found' });
+    }
+
+    db.logActivity(
+      userId || 'ADMIN-001',
+      userName || 'Sarah Khalid Al-Ghamdi',
+      role || 'HR Manager',
+      'Payroll Run' as any,
+      'Payroll',
+      `Reopened payroll run ${id} to Draft. Comment: ${comment || 'Reopened for corrections'}`,
+      ip || '127.0.0.1'
+    );
+
+    db.addNotification(
+      'Payroll Reopened',
+      `Payroll run ${id} has been reopened to Draft status. All approvals reset.`,
+      'warning',
+      'Payroll'
+    );
+
+    console.log(`[RESPONSE GENERATED] Successfully reopened run ${id}`);
+    res.json({
+      success: true,
+      message: "Payroll run reopened successfully.",
+      data: updatedRun
+    });
+  } catch (err) {
+    console.error(`[PAYROLL CALCULATION ERROR] Error reopening run:`, err);
+    next(err);
   }
-
-  db.logActivity(
-    userId || 'ADMIN-001',
-    userName || 'Sarah Khalid Al-Ghamdi',
-    role || 'HR Manager',
-    'Payroll Run' as any,
-    'Payroll',
-    `Reopened payroll run ${id} to Draft. Comment: ${comment || 'Reopened for corrections'}`,
-    ip || '127.0.0.1'
-  );
-
-  db.addNotification(
-    'Payroll Reopened',
-    `Payroll run ${id} has been reopened to Draft status. All approvals reset.`,
-    'warning',
-    'Payroll'
-  );
-
-  res.json(updatedRun);
 });
 
 // Cancel and delete draft payroll run
-app.post('/api/payroll/:id/cancel', (req, res) => {
-  const { id } = req.params;
-  const { userId, userName, role, ip } = req.body;
+app.post('/api/payroll/:id/cancel', (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { userId, userName, role, ip } = req.body;
 
-  let success = false;
-  db.update((data) => {
-    const index = data.payrollRuns.findIndex(r => r.id === id);
-    if (index !== -1) {
-      if (data.payrollRuns[index].status === 'Draft') {
-        data.payrollRuns.splice(index, 1);
-        success = true;
+    console.log(`[INCOMING REQUEST] POST /api/payroll/${id}/cancel`);
+
+    let success = false;
+    console.log(`[DATABASE QUERY] Deleting payroll run ${id}...`);
+    db.update((data) => {
+      if (!data.payrollRuns) data.payrollRuns = [];
+      const index = data.payrollRuns.findIndex(r => r.id === id);
+      if (index !== -1) {
+        if (data.payrollRuns[index].status === 'Draft') {
+          data.payrollRuns.splice(index, 1);
+          success = true;
+        }
       }
+    });
+
+    if (!success) {
+      return res.status(400).json({ success: false, error: 'Cannot cancel payroll. Run may be approved, locked, or not found.' });
     }
-  });
 
-  if (!success) {
-    return res.status(400).json({ error: 'Cannot cancel payroll. Run may be approved, locked, or not found.' });
+    db.logActivity(
+      userId || 'ADMIN-001',
+      userName || 'Sarah Khalid Al-Ghamdi',
+      role || 'HR Manager',
+      'Payroll Run' as any,
+      'Payroll',
+      `Cancelled and deleted draft payroll run ${id}.`,
+      ip || '127.0.0.1'
+    );
+
+    console.log(`[RESPONSE GENERATED] Successfully cancelled run ${id}`);
+    res.json({ success: true, message: "Draft payroll run cancelled and deleted successfully." });
+  } catch (err) {
+    console.error(`[PAYROLL CALCULATION ERROR] Error cancelling run:`, err);
+    next(err);
   }
-
-  db.logActivity(
-    userId || 'ADMIN-001',
-    userName || 'Sarah Khalid Al-Ghamdi',
-    role || 'HR Manager',
-    'Payroll Run' as any,
-    'Payroll',
-    `Cancelled and deleted draft payroll run ${id}.`,
-    ip || '127.0.0.1'
-  );
-
-  res.json({ success: true });
 });
 
 // Post direct payroll actions to audit trails (printing, exporting, etc.)
-app.post('/api/payroll/audit-log', (req, res) => {
-  const { userId, userName, role, actionType, payrollMonth, payrollYear, employeesIncluded, fileFormat, ip } = req.body;
+app.post('/api/payroll/audit-log', (req, res, next) => {
+  try {
+    const { userId, userName, role, actionType, payrollMonth, payrollYear, employeesIncluded, fileFormat, ip } = req.body;
 
-  db.logActivity(
-    userId || 'ADMIN-001',
-    userName || 'Sarah Khalid Al-Ghamdi',
-    role || 'HR Manager',
-    actionType || 'Update',
-    'Payroll',
-    `Exported/Printed payroll for ${payrollYear}-${payrollMonth} in ${fileFormat} format. Included ${employeesIncluded} employees.`,
-    ip || '127.0.0.1'
-  );
+    console.log(`[INCOMING REQUEST] POST /api/payroll/audit-log`);
 
-  res.json({ success: true });
+    db.logActivity(
+      userId || 'ADMIN-001',
+      userName || 'Sarah Khalid Al-Ghamdi',
+      role || 'HR Manager',
+      actionType || 'Update',
+      'Payroll',
+      `Exported/Printed payroll for ${payrollYear}-${payrollMonth} in ${fileFormat} format. Included ${employeesIncluded} employees.`,
+      ip || '127.0.0.1'
+    );
+
+    res.json({ success: true, message: "Payroll action logged successfully." });
+  } catch (err) {
+    console.error(`[PAYROLL CALCULATION ERROR] Error saving audit log:`, err);
+    next(err);
+  }
 });
 
 // Create Maintenance Work Order
@@ -1331,6 +1448,25 @@ Instructions:
   }
 });
 
+
+// Centralized API Error Handling Middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[GLOBAL ERROR HANDLER] Captured unhandled exception:', err);
+  if (err.stack) {
+    console.error(err.stack);
+  }
+  
+  // Always return structured JSON for /api requests
+  if (req.path.startsWith('/api/')) {
+    return res.status(err.status || 500).json({
+      success: false,
+      error: err.message || 'Internal Server Error',
+      details: err.details || err.stack || null
+    });
+  }
+  
+  next(err);
+});
 
 // Serve static files in production / Vite in development
 async function startServer() {
