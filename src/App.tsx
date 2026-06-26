@@ -172,33 +172,59 @@ export default function App() {
 
     let finished = false;
     
-    // 5-second maximum startup timeout
+    // 25-second maximum startup timeout (resilient against container cold-starts)
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
         if (!finished) {
-          reject(new Error('GCC-HR startup connection timed out (5s limit reached)'));
+          reject(new Error('GCC-HR startup connection timed out (25s limit reached)'));
         }
-      }, 5000);
+      }, 25000);
     });
 
     const startupPromise = (async () => {
       try {
-        // Step 1: Health / DB
-        const healthRes = await fetch('/api/health').catch(() => null);
-        if (!healthRes || !healthRes.ok) {
-          throw new Error('Health check failed - server unreachable');
+        // Step 1: Health / DB with robust retries for cold-starts
+        let healthRes = null;
+        let healthData = null;
+        for (let i = 0; i < 8; i++) {
+          try {
+            console.log(`[PWA Startup] Connection handshake attempt ${i + 1}/8...`);
+            healthRes = await fetch('/api/health');
+            if (healthRes && healthRes.ok) {
+              healthData = await healthRes.json();
+              break;
+            }
+          } catch (fetchErr) {
+            console.warn(`[PWA Startup] Handshake attempt ${i + 1} failed:`, fetchErr);
+          }
+          // Wait 1.5 seconds before retrying
+          await new Promise(r => setTimeout(r, 1500));
         }
-        const healthData = await healthRes.json();
+
+        if (!healthRes || !healthRes.ok || !healthData) {
+          throw new Error('Health check failed - server unreachable after 8 attempts');
+        }
+
         updateStep(0, 'success', `Database Ready (${healthData.database === 'connected' ? 'Connected' : 'Offline'}).`);
 
         // Step 2: Settings
         await new Promise(r => setTimeout(r, 150));
         updateStep(1, 'success', 'Settings Ready (Corporate profiles synced).');
 
-        // Step 3: Sync state
+        // Step 3: Sync state with automatic retry for transient load issues
         await new Promise(r => setTimeout(r, 150));
-        const res = await fetch('/api/state');
-        if (!res.ok) throw new Error('Failed to retrieve system state');
+        let res = null;
+        for (let i = 0; i < 3; i++) {
+          try {
+            res = await fetch('/api/state');
+            if (res && res.ok) break;
+          } catch (err) {
+            if (i === 2) throw err;
+          }
+          await new Promise(r => setTimeout(r, 1000));
+        }
+
+        if (!res || !res.ok) throw new Error('Failed to retrieve system state after retries');
         const data = await res.json();
         updateStep(2, 'success', 'API Ready (Enterprise state sync complete).');
 

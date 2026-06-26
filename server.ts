@@ -1946,6 +1946,15 @@ app.post('/api/communication/accounts/action', (req, res) => {
 });
 
 
+// Catch-all route for undefined API endpoints (guarantees JSON output, never HTML fallback)
+app.all('/api/*', (req, res, next) => {
+  const err = new Error(`API endpoint ${req.method} ${req.path} not found or HTTP method unsupported`);
+  (err as any).status = 404;
+  (err as any).details = 'Verify the route path, request body, and HTTP method.';
+  next(err);
+});
+
+
 // Centralized API Error Handling Middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('[GLOBAL ERROR HANDLER] Captured unhandled exception:', err);
