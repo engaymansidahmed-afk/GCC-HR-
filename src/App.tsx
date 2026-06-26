@@ -17,7 +17,10 @@ import {
   LogOut,
   FolderLock,
   Shield,
-  Cpu
+  Cpu,
+  Smartphone,
+  Monitor,
+  X
 } from 'lucide-react';
 import DashboardView from './components/DashboardView';
 import EmployeesView from './components/EmployeesView';
@@ -50,6 +53,63 @@ export default function App() {
   const [state, setState] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // PWA states
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setIsAppInstalled(true);
+      const newNotif = {
+        id: `NOTIF-${Date.now()}`,
+        title: 'App Installed Successfully',
+        message: 'GCC HR has been added to your device. You can now open it directly from your home screen or desktop!',
+        type: 'success',
+        module: 'System',
+        createdAt: new Date().toISOString(),
+        isRead: false
+      };
+      setState((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          notifications: [newNotif, ...(prev.notifications || [])]
+        };
+      });
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // Check display mode
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      setIsAppInstalled(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      setShowInstallGuide(true);
+      return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log('[PWA] User outcome choice:', outcome);
+    setDeferredPrompt(null);
+  };
 
   const currentRole = EMULATED_ROLES[roleIndex];
 
@@ -289,6 +349,18 @@ export default function App() {
               <span>{isRtl ? 'English' : 'العربية'}</span>
             </button>
 
+            {/* PWA Install Button */}
+            {!isAppInstalled && (
+              <button
+                onClick={handleInstallClick}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1565C0] hover:bg-[#0D47A1] text-white rounded-lg text-xs font-bold cursor-pointer transition-all shadow-xs"
+                title={isRtl ? "تثبيت تطبيق GCC HR" : "Install GCC HR App"}
+              >
+                <Smartphone className="w-3.5 h-3.5 animate-pulse" />
+                <span className="hidden sm:inline">{isRtl ? 'تثبيت التطبيق' : 'Install App'}</span>
+              </button>
+            )}
+
             {/* Emulated Role Switcher */}
             <div className="relative flex items-center gap-1 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg text-xs">
               <UserCheck className="w-3.5 h-3.5 text-[#1565C0]" />
@@ -460,6 +532,107 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* PWA Install Guide Modal */}
+      {showInstallGuide && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-[#1565C0] to-[#1E88E5] text-white">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5 animate-pulse" />
+                <h3 className="font-bold text-sm">
+                  {isRtl ? 'تثبيت منصة GCC HR' : 'Install GCC HR Platform'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowInstallGuide(false)}
+                className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-5 text-gray-700 text-xs">
+              <div className="flex gap-4 items-center p-4 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                <img
+                  src="/icon-192.png"
+                  alt="GCC HR Icon"
+                  className="w-14 h-14 rounded-xl shadow-md border border-white"
+                  referrerPolicy="no-referrer"
+                />
+                <div>
+                  <h4 className="font-bold text-gray-900 text-sm">GCC HR</h4>
+                  <p className="text-gray-500 text-[11px] mt-0.5">
+                    {isRtl ? 'منصة الموارد البشرية وإدارة المشاريع' : 'Enterprise HR & Operations Platform'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h5 className="font-semibold text-gray-900 border-b pb-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                  <Smartphone className="w-3.5 h-3.5 text-[#1565C0]" />
+                  <span>{isRtl ? 'الأجهزة المحمولة (iOS / Android)' : 'Mobile Devices (iOS & Android)'}</span>
+                </h5>
+
+                {/* iOS Instructions */}
+                <div className="space-y-1">
+                  <p className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1565C0]"></span>
+                    Apple iOS (Safari):
+                  </p>
+                  <p className="pl-3 text-gray-600 leading-relaxed">
+                    {isRtl 
+                      ? 'اضغط على أيقونة "مشاركة" (Share) في شريط Safari، ثم اختر "إضافة إلى الصفحة الرئيسية" (Add to Home Screen).' 
+                      : 'Tap the "Share" button at the bottom of Safari, scroll down, and select "Add to Home Screen".'}
+                  </p>
+                </div>
+
+                {/* Android Instructions */}
+                <div className="space-y-1">
+                  <p className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1565C0]"></span>
+                    Google Android (Chrome):
+                  </p>
+                  <p className="pl-3 text-gray-600 leading-relaxed">
+                    {isRtl
+                      ? 'اضغط على زر التثبيت في أعلى الصفحة أو اضغط على القائمة (ثلاث نقاط) واختر "تثبيت التطبيق".'
+                      : 'Tap the "Install App" button in the header, or open Chrome settings (three dots) and select "Install App" or "Add to Home Screen".'}
+                  </p>
+                </div>
+
+                <h5 className="font-semibold text-gray-900 border-b pb-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-wider pt-2">
+                  <Monitor className="w-3.5 h-3.5 text-[#1565C0]" />
+                  <span>{isRtl ? 'أجهزة الكمبيوتر والويندوز' : 'Desktop & Windows'}</span>
+                </h5>
+
+                <div className="space-y-1">
+                  <p className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1565C0]"></span>
+                    Desktop Browser (Chrome / Edge):
+                  </p>
+                  <p className="pl-3 text-gray-600 leading-relaxed">
+                    {isRtl
+                      ? 'انقر فوق رمز التثبيت (شاشة صغيرة مع سهم لأسفل) في شريط عنوان المتصفح، أو انقر فوق زر "تثبيت التطبيق" في رأس الصفحة.'
+                      : 'Click the Install icon in the browser address bar (right side), or click the "Install App" button in the page header to run GCC HR as a native desktop app.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setShowInstallGuide(false)}
+                className="px-4 py-2 bg-[#1565C0] hover:bg-[#0D47A1] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                {isRtl ? 'إغلاق' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
