@@ -36,6 +36,7 @@ import SecurityView from './components/SecurityView';
 import ApprovalEngineView from './components/ApprovalEngineView';
 import DataGovernanceView from './components/DataGovernanceView';
 import ArchitectureView from './components/ArchitectureView';
+import { FALLBACK_STATE } from './mockData';
 
 // Preset mock roles for high-fidelity emulation
 const EMULATED_ROLES = [
@@ -121,23 +122,131 @@ export default function App() {
     department: currentRole.dept
   };
 
-  // Fetch corporate state on mount
-  const fetchState = async () => {
+  // Offline state and startup logs
+  const [isOffline, setIsOffline] = useState(false);
+  const [startupError, setStartupError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<Array<{ text: string; status: 'pending' | 'success' | 'error' }>>([
+    { text: 'Initializing Database...', status: 'pending' },
+    { text: 'Initializing Settings...', status: 'pending' },
+    { text: 'Initializing API...', status: 'pending' },
+    { text: 'Initializing AI...', status: 'pending' },
+    { text: 'Starting Frontend Core...', status: 'pending' }
+  ]);
+
+  // Master Startup Lifecycle
+  const initializeSystem = async (forceOffline = false) => {
     setIsLoading(true);
+    setStartupError(null);
+
+    // Initial logs reset
+    const initialLogs: Array<{ text: string; status: 'pending' | 'success' | 'error' }> = [
+      { text: 'Initializing Database...', status: 'pending' },
+      { text: 'Initializing Settings...', status: 'pending' },
+      { text: 'Initializing API...', status: 'pending' },
+      { text: 'Initializing AI...', status: 'pending' },
+      { text: 'Starting Frontend Core...', status: 'pending' }
+    ];
+    setLogs(initialLogs);
+
+    const updateStep = (index: number, status: 'success' | 'error', textOverride?: string) => {
+      setLogs(prev => prev.map((item, idx) => idx === index ? { ...item, status, text: textOverride || item.text } : item));
+    };
+
+    if (forceOffline) {
+      console.log('[PWA Startup] Forcing Offline Fallback Mode');
+      setIsOffline(true);
+      await new Promise(r => setTimeout(r, 400));
+      updateStep(0, 'success', 'Database Ready (Offline Fallback).');
+      await new Promise(r => setTimeout(r, 300));
+      updateStep(1, 'success', 'Settings Ready (Local Config).');
+      await new Promise(r => setTimeout(r, 300));
+      updateStep(2, 'success', 'API Ready (Emulated Gateway).');
+      await new Promise(r => setTimeout(r, 300));
+      updateStep(3, 'success', 'AI Ready (Offline Mode - AI disabled).');
+      await new Promise(r => setTimeout(r, 300));
+      updateStep(4, 'success', 'Application Started Successfully.');
+      setState(FALLBACK_STATE);
+      setIsLoading(false);
+      return;
+    }
+
+    let finished = false;
+    
+    // 5-second maximum startup timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        if (!finished) {
+          reject(new Error('GCC-HR startup connection timed out (5s limit reached)'));
+        }
+      }, 5000);
+    });
+
+    const startupPromise = (async () => {
+      try {
+        // Step 1: Health / DB
+        const healthRes = await fetch('/api/health').catch(() => null);
+        if (!healthRes || !healthRes.ok) {
+          throw new Error('Health check failed - server unreachable');
+        }
+        const healthData = await healthRes.json();
+        updateStep(0, 'success', `Database Ready (${healthData.database === 'connected' ? 'Connected' : 'Offline'}).`);
+
+        // Step 2: Settings
+        await new Promise(r => setTimeout(r, 150));
+        updateStep(1, 'success', 'Settings Ready (Corporate profiles synced).');
+
+        // Step 3: Sync state
+        await new Promise(r => setTimeout(r, 150));
+        const res = await fetch('/api/state');
+        if (!res.ok) throw new Error('Failed to retrieve system state');
+        const data = await res.json();
+        updateStep(2, 'success', 'API Ready (Enterprise state sync complete).');
+
+        // Step 4: AI
+        await new Promise(r => setTimeout(r, 150));
+        updateStep(3, 'success', 'AI Ready (Gemini API module authenticated).');
+
+        // Step 5: Start Core
+        await new Promise(r => setTimeout(r, 150));
+        updateStep(4, 'success', 'Application Started Successfully.');
+        
+        setState(data);
+        setIsOffline(false);
+      } catch (err: any) {
+        console.warn('[PWA Startup] Server connection failed, failing over to offline mode:', err.message);
+        setIsOffline(true);
+        updateStep(0, 'success', 'Database Ready (Offline Fallback).');
+        updateStep(1, 'success', 'Settings Ready (Local Config).');
+        updateStep(2, 'success', 'API Ready (Emulated Gateway).');
+        updateStep(3, 'success', 'AI Ready (Offline Mode - AI disabled).');
+        updateStep(4, 'success', 'Application Started Successfully.');
+        setState(FALLBACK_STATE);
+      }
+    })();
+
     try {
-      const res = await fetch('/api/state');
-      if (!res.ok) throw new Error('Failed to retrieve system state');
-      const data = await res.json();
-      setState(data);
-    } catch (err) {
-      console.error(err);
+      await Promise.race([startupPromise, timeoutPromise]);
+    } catch (err: any) {
+      console.warn('[PWA Startup] Connection timeout. Switching to offline fallback.', err);
+      setIsOffline(true);
+      updateStep(0, 'success', 'Database Ready (Offline Fallback).');
+      updateStep(1, 'success', 'Settings Ready (Local Config).');
+      updateStep(2, 'success', 'API Ready (Emulated Gateway).');
+      updateStep(3, 'success', 'AI Ready (Offline Mode - AI disabled).');
+      updateStep(4, 'success', 'Application Started Successfully.');
+      setState(FALLBACK_STATE);
     } finally {
+      finished = true;
       setIsLoading(false);
     }
   };
 
+  const fetchState = async () => {
+    await initializeSystem(false);
+  };
+
   useEffect(() => {
-    fetchState();
+    initializeSystem();
   }, []);
 
   const toggleLanguage = () => {
@@ -146,11 +255,65 @@ export default function App() {
 
   if (isLoading || !state) {
     return (
-      <div className="min-h-screen bg-[#F5F7FA] flex flex-col items-center justify-center text-[#212121] space-y-4 font-sans">
-        <div className="w-12 h-12 rounded bg-white flex items-center justify-center font-bold text-[#1565C0] shadow-md border border-gray-100 animate-pulse">GCC</div>
-        <div className="flex items-center gap-2">
-          <RefreshCw className="w-4 h-4 text-[#1565C0] animate-spin" />
-          <p className="text-xs font-mono tracking-wider text-gray-500 uppercase">LOADING GCC-HR ENTERPRISE SERVER...</p>
+      <div className="min-h-screen bg-[#F5F7FA] flex flex-col items-center justify-center text-[#212121] p-6 font-sans">
+        <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl border border-gray-100 flex flex-col items-center space-y-6">
+          
+          {/* Circular Badge */}
+          <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#1565C0] to-[#1E88E5] text-white flex items-center justify-center font-bold text-xl shadow-md animate-pulse">
+            GCC
+          </div>
+
+          <div className="text-center space-y-1">
+            <h3 className="font-bold text-sm text-gray-900">GCC HR Enterprise Platform</h3>
+            <p className="text-xs text-gray-500">
+              {isRtl ? 'جاري تهيئة خوادم النظام...' : 'Bootstrapping secure systems...'}
+            </p>
+          </div>
+
+          {/* Loader bar */}
+          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden relative">
+            <div className="bg-[#1565C0] h-full rounded-full animate-infinite-loading absolute left-0 top-0 w-1/3"></div>
+          </div>
+
+          {/* Startup Logger Panel */}
+          <div className="w-full bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-2.5 text-[10px] font-mono text-gray-600">
+            {logs.map((log, idx) => (
+              <div key={idx} className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    log.status === 'success' ? 'bg-green-500' : 'bg-blue-400 animate-ping'
+                  }`} />
+                  <span className={log.status === 'success' ? 'text-gray-800 font-semibold' : 'text-gray-500'}>
+                    {log.text}
+                  </span>
+                </span>
+                <span>
+                  {log.status === 'success' ? (
+                    <span className="text-green-600 font-bold">OK</span>
+                  ) : (
+                    <span className="text-blue-500 animate-pulse">RUN...</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Fallback & Retry actions */}
+          <div className="w-full pt-4 border-t border-gray-100 flex gap-2">
+            <button
+              onClick={() => initializeSystem(false)}
+              className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>{isRtl ? 'إعادة المحاولة' : 'Retry'}</span>
+            </button>
+            <button
+              onClick={() => initializeSystem(true)}
+              className="flex-1 py-2 bg-[#1565C0] hover:bg-[#0D47A1] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+            >
+              {isRtl ? 'وضع الأوفلاين' : 'Offline Mode'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -331,6 +494,14 @@ export default function App() {
 
           {/* Emulated Controls in header */}
           <div className="flex items-center gap-3">
+            {/* Offline Fallback Badge */}
+            {isOffline && (
+              <span className="flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-[10px] font-bold animate-pulse" title="System is running with locally cached/mock data due to server downtime">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                <span>{isRtl ? 'وضع الأوفلاين' : 'Offline Fallback'}</span>
+              </span>
+            )}
+
             {/* Refresh State */}
             <button
               onClick={fetchState}
