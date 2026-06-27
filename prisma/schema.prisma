@@ -339,3 +339,99 @@ model User {
   updatedAt       DateTime @updatedAt
 
 }
+// ======================================================
+// Attendance
+// ======================================================
+
+model Attendance {
+
+  id              String @id @default(cuid())
+
+  employeeId      String
+  employee        Employee @relation(fields:[employeeId], references:[id], onDelete: Cascade)
+
+  attendanceDate  DateTime
+
+  checkIn         DateTime?
+
+  checkOut        DateTime?
+
+  workingHours    Decimal? @db.Decimal(5,2)
+
+  overtimeHours   Decimal? @db.Decimal(5,2)
+
+  lateMinutes     Int @default(0)
+
+  earlyLeave      Int @default(0)
+
+  notes           String?
+
+  createdAt       DateTime @default(now())
+
+  updatedAt       DateTime @updatedAt
+
+  @@index([employeeId])
+
+}
+
+
+// ======================================================
+// Leave Types
+// ======================================================
+
+model LeaveType {
+
+  id              String @id @default(cuid())
+
+  code            String @unique
+
+  name            String
+
+  nameAr          String?
+
+  paid            Boolean @default(true)
+
+  maxDays         Int
+
+  requiresApproval Boolean @default(true)
+
+  requests        Leave[]
+
+}
+
+
+// ======================================================
+// Leave Requests
+// ======================================================
+
+model Leave {
+
+  id              String @id @default(cuid())
+
+  employeeId      String
+  employee        Employee @relation(fields:[employeeId], references:[id], onDelete: Cascade)
+
+  leaveTypeId     String
+  leaveType       LeaveType @relation(fields:[leaveTypeId], references:[id])
+
+  startDate       DateTime
+
+  endDate         DateTime
+
+  totalDays       Int
+
+  reason          String?
+
+  status          RequestStatus @default(PENDING)
+
+  approvedBy      String?
+
+  approvedAt      DateTime?
+
+  createdAt       DateTime @default(now())
+
+  updatedAt       DateTime @updatedAt
+
+  @@index([employeeId])
+
+}
