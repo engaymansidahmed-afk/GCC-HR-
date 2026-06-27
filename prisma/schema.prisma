@@ -343,7 +343,7 @@ model User {
 
   employeeId      String? @unique
 
-  employee        Employee? @relation("UserEmployee", fields: [employeeId], references: [id])
+ employee        Employee? @relation("UserEmployee", fields: [employeeId], references: [id])
 
   roleId          String
 
