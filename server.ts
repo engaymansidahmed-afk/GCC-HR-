@@ -4,7 +4,7 @@ import { createServer as createViteServer } from 'vite';
 import { db } from './server/db';
 import { GoogleGenAI } from '@google/genai';
 import { Employee, ApprovalHistoryItem } from './src/types';
-
+import { registerRoutes } from "./routes";
 const app = express();
 const PORT = 3000;
 
@@ -2029,25 +2029,49 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   next(err);
 });
 
+// -----------------------------------------------------------------------------
 // Serve static files in production / Vite in development
+// -----------------------------------------------------------------------------
+
 async function startServer() {
+
   if (process.env.NODE_ENV !== 'production') {
+
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true
+      },
       appType: 'spa'
     });
+
     app.use(vite.middlewares);
+
   } else {
+
     const distPath = path.join(process.cwd(), 'dist');
+
     app.use(express.static(distPath));
+
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
+
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`GCC HR Fullstack Server listening on http://localhost:${PORT}`);
+    console.log(`🚀 GCC HR Enterprise Server listening on http://localhost:${PORT}`);
   });
+
 }
+
+// -----------------------------------------------------------------------------
+// Register Enterprise Routes
+// -----------------------------------------------------------------------------
+
+registerRoutes(app);
+
+// -----------------------------------------------------------------------------
+// Start Application
+// -----------------------------------------------------------------------------
 
 startServer();
