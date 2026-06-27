@@ -227,7 +227,7 @@ model Employee {
   // Relations
   // ============================
 
-  user              User?
+ user              User? @relation("UserEmployee")
 
   attendances       Attendance[]
 
