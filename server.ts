@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/db';
+import { prisma } from "./lib/prisma";
 import { GoogleGenAI } from '@google/genai';
 import { Employee, ApprovalHistoryItem } from './src/types';
 import { registerRoutes } from "./routes";
