@@ -547,3 +547,119 @@ model LoanInstallment {
   createdAt       DateTime @default(now())
 
 }
+// ======================================================
+// Employee Custody (العهد)
+// ======================================================
+
+model Custody {
+
+  id              String @id @default(cuid())
+
+  custodyNumber   String @unique
+
+  employeeId      String
+  employee        Employee @relation(fields:[employeeId], references:[id], onDelete: Cascade)
+
+  assetType       String
+
+  assetId         String?
+
+  issueDate       DateTime
+
+  expectedReturn  DateTime?
+
+  returnDate      DateTime?
+
+  status          AssetStatus @default(ASSIGNED)
+
+  notes           String?
+
+  createdAt       DateTime @default(now())
+
+  updatedAt       DateTime @updatedAt
+
+  @@index([employeeId])
+
+}
+
+// ======================================================
+// Office Devices
+// ======================================================
+
+model OfficeDevice {
+
+  id                String @id @default(cuid())
+
+  serialNumber      String @unique
+
+  assetCode         String @unique
+
+  name              String
+
+  brand             String?
+
+  model             String?
+
+  category          String?
+
+  purchaseDate      DateTime?
+
+  purchasePrice     Decimal? @db.Decimal(12,2)
+
+  warrantyUntil     DateTime?
+
+  status            AssetStatus @default(AVAILABLE)
+
+  notes             String?
+
+  createdAt         DateTime @default(now())
+
+  updatedAt         DateTime @updatedAt
+
+}
+
+// ======================================================
+// Vehicles
+// ======================================================
+
+model Vehicle {
+
+  id                String @id @default(cuid())
+
+  plateNumber       String @unique
+
+  vehicleCode       String @unique
+
+  manufacturer      String
+
+  model             String
+
+  year              Int?
+
+  color             String?
+
+  chassisNumber     String? @unique
+
+  engineNumber      String? @unique
+
+  fuelType          String?
+
+  purchaseDate      DateTime?
+
+  purchasePrice     Decimal? @db.Decimal(12,2)
+
+  currentMileage    Int @default(0)
+
+  insuranceExpiry   DateTime?
+
+  registrationExpiry DateTime?
+
+  status            AssetStatus @default(AVAILABLE)
+
+  notes             String?
+
+  createdAt         DateTime @default(now())
+
+  updatedAt         DateTime @updatedAt
+
+}
