@@ -59,3 +59,88 @@ enum PayrollStatus {
   APPROVED
   PAID
 }
+model Company {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  name        String
+  nameAr      String?
+  email       String?
+  phone       String?
+  website     String?
+  taxNumber   String?
+  commercialNo String?
+  address     String?
+  city        String?
+  country     String?
+  logo        String?
+  isActive    Boolean      @default(true)
+
+  branches    Branch[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Branch {
+  id          String       @id @default(cuid())
+
+  companyId   String
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  code        String       @unique
+  name        String
+  nameAr      String?
+
+  address     String?
+  city        String?
+  phone       String?
+  email       String?
+
+  isActive    Boolean      @default(true)
+
+  departments Department[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Department {
+  id          String       @id @default(cuid())
+
+  branchId    String
+  branch      Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  code        String       @unique
+  name        String
+  nameAr      String?
+
+  description String?
+
+  isActive    Boolean      @default(true)
+
+  positions   Position[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Position {
+  id            String      @id @default(cuid())
+
+  departmentId  String
+  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  code          String      @unique
+  title         String
+  titleAr       String?
+
+  grade         String?
+  level         String?
+
+  basicSalary   Decimal?    @db.Decimal(12,2)
+
+  isActive      Boolean     @default(true)
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
