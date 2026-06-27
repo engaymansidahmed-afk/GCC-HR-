@@ -145,6 +145,7 @@ model Position {
   updatedAt     DateTime    @updatedAt
 }
 model Employee {
+
   id                String           @id @default(cuid())
 
   employeeNumber    String           @unique
@@ -222,10 +223,32 @@ model Employee {
 
   updatedAt         DateTime         @updatedAt
 
+  // ============================
+  // Relations
+  // ============================
+
+  user              User?
+
+  attendances       Attendance[]
+
+  leaves            Leave[]
+
+  payrolls          Payroll[]
+
+  loans             Loan[]
+
+  custodies         Custody[]
+
+  // ============================
+
   @@index([companyId])
+
   @@index([branchId])
+
   @@index([departmentId])
+
   @@index([positionId])
+
 }
 // ======================================================
 // Roles
