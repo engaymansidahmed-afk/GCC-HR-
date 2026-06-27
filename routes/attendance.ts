@@ -7,7 +7,7 @@ router.get("/", (_req, res) => {
   res.json({
     success: true,
     module: "attendance",
-    message: "Attendance API Ready"
+    message: "Attendance API Ready",
   });
 });
 
