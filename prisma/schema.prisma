@@ -343,7 +343,7 @@ model User {
 
   employeeId      String? @unique
 
-  employee        Employee? @relation(fields: [employeeId], references: [id])
+  employee        Employee? @relation("UserEmployee", fields: [employeeId], references: [id])
 
   roleId          String
 
@@ -362,10 +362,6 @@ model User {
   updatedAt       DateTime @updatedAt
 
 }
-// ======================================================
-// Attendance
-// ======================================================
-
 model Attendance {
 
   id              String @id @default(cuid())
