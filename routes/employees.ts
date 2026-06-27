@@ -3,7 +3,7 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma";
 
 const router = Router();
-
+console.log("✅ Employees routes loaded");
 /**
  * GET /api/employees
  * جميع الموظفين
