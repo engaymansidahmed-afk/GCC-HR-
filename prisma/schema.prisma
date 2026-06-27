@@ -227,3 +227,115 @@ model Employee {
   @@index([departmentId])
   @@index([positionId])
 }
+// ======================================================
+// Roles
+// ======================================================
+
+model Role {
+
+  id          String   @id @default(cuid())
+
+  code        String   @unique
+
+  name        String
+
+  nameAr      String?
+
+  description String?
+
+  isSystem    Boolean  @default(false)
+
+  isActive    Boolean  @default(true)
+
+  users       User[]
+
+  permissions RolePermission[]
+
+  createdAt   DateTime @default(now())
+
+  updatedAt   DateTime @updatedAt
+
+}
+
+
+// ======================================================
+// Permissions
+// ======================================================
+
+model Permission {
+
+  id          String   @id @default(cuid())
+
+  code        String   @unique
+
+  module      String
+
+  action      String
+
+  name        String
+
+  nameAr      String?
+
+  description String?
+
+  roles       RolePermission[]
+
+}
+
+
+// ======================================================
+// Many-To-Many
+// ======================================================
+
+model RolePermission {
+
+  roleId        String
+
+  permissionId  String
+
+  role          Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  permission    Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  assignedAt    DateTime @default(now())
+
+  @@id([roleId, permissionId])
+
+}
+
+
+// ======================================================
+// Users
+// ======================================================
+
+model User {
+
+  id              String @id @default(cuid())
+
+  username        String @unique
+
+  email           String @unique
+
+  passwordHash    String
+
+  employeeId      String? @unique
+
+  employee        Employee? @relation(fields: [employeeId], references: [id])
+
+  roleId          String
+
+  role            Role @relation(fields: [roleId], references: [id])
+
+  status          UserStatus @default(ACTIVE)
+
+  lastLogin       DateTime?
+
+  failedAttempts  Int @default(0)
+
+  lockedUntil     DateTime?
+
+  createdAt       DateTime @default(now())
+
+  updatedAt       DateTime @updatedAt
+
+}
