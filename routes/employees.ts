@@ -171,6 +171,105 @@ router.post("/", async (req, res) => {
     });
   }
 });
+```ts
+/**
+ * PUT /api/employees/:id
+ * تحديث بيانات موظف
+ */
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+
+    const employee = await prisma.employee.update({
+      where: {
+        id,
+      },
+
+      data: {
+        employeeNumber: data.employeeNumber,
+
+        firstName: data.firstName,
+        middleName: data.middleName || null,
+        lastName: data.lastName,
+
+        fullName: data.fullName,
+        fullNameAr: data.fullNameAr || null,
+
+        gender: data.gender,
+
+        maritalStatus: data.maritalStatus || null,
+
+        nationality: data.nationality || null,
+
+        nationalId: data.nationalId || null,
+        passportNumber: data.passportNumber || null,
+
+        email: data.email || null,
+        mobile: data.mobile || null,
+
+        dateOfBirth: data.dateOfBirth
+          ? new Date(data.dateOfBirth)
+          : null,
+
+        hireDate: data.hireDate
+          ? new Date(data.hireDate)
+          : undefined,
+
+        employmentType: data.employmentType,
+
+        status: data.status,
+
+        companyId: data.companyId,
+        branchId: data.branchId,
+        departmentId: data.departmentId,
+        positionId: data.positionId,
+
+        basicSalary: data.basicSalary ?? null,
+        housingAllowance: data.housingAllowance ?? null,
+        transportAllowance: data.transportAllowance ?? null,
+        communicationAllowance: data.communicationAllowance ?? null,
+        foodAllowance: data.foodAllowance ?? null,
+
+        bankName: data.bankName || null,
+        iban: data.iban || null,
+
+        emergencyContact: data.emergencyContact || null,
+        emergencyPhone: data.emergencyPhone || null,
+
+        address: data.address || null,
+        city: data.city || null,
+        country: data.country || null,
+
+        profileImage: data.profileImage || null,
+
+        notes: data.notes || null,
+      },
+
+      include: {
+        company: true,
+        branch: true,
+        department: true,
+        position: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: "Employee updated successfully.",
+      data: employee,
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update employee.",
+    });
+  }
+});
+```
 
 export default router;
 ```
