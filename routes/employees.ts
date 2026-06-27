@@ -1,76 +1,110 @@
+```ts
 import { Router } from "express";
+import { prisma } from "../lib/prisma";
 
 const router = Router();
 
-/*
-|--------------------------------------------------------------------------
-| Employee Health Check
-|--------------------------------------------------------------------------
-*/
-
+/**
+ * GET /api/employees
+ * جميع الموظفين
+ */
 router.get("/", async (req, res) => {
-    return res.status(200).json({
-        success: true,
-        module: "Employees",
-        message: "Employee API is running successfully."
+  try {
+
+    const employees = await prisma.employee.findMany({
+
+      include: {
+        company: true,
+        branch: true,
+        department: true,
+        position: true
+      },
+
+      orderBy: {
+        createdAt: "desc"
+      }
+
     });
+
+    return res.json({
+      success: true,
+      count: employees.length,
+      data: employees
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load employees."
+    });
+
+  }
 });
 
-/*
-|--------------------------------------------------------------------------
-| Get Employees
-|--------------------------------------------------------------------------
-*/
+/**
+ * GET /api/employees/:id
+ * جلب موظف واحد
+ */
+router.get("/:id", async (req, res) => {
 
-router.get("/list", async (req, res) => {
+  try {
 
-    try {
+    const { id } = req.params;
 
-        // سيتم لاحقاً استدعاء قاعدة البيانات
+    const employee = await prisma.employee.findUnique({
 
-        return res.json({
-            success: true,
-            data: []
-        });
+      where: {
+        id
+      },
 
-    } catch (error) {
+      include: {
+        company: true,
+        branch: true,
+        department: true,
+        position: true,
+        attendances: true,
+        leaves: true,
+        payrolls: true,
+        loans: true
+      }
 
-        return res.status(500).json({
-            success: false,
-            message: "Unable to load employees."
-        });
+    });
+
+    if (!employee) {
+
+      return res.status(404).json({
+
+        success: false,
+        message: "Employee not found."
+
+      });
 
     }
 
-});
+    return res.json({
 
-/*
-|--------------------------------------------------------------------------
-| Create Employee
-|--------------------------------------------------------------------------
-*/
+      success: true,
+      data: employee
 
-router.post("/", async (req, res) => {
+    });
 
-    try {
+  } catch (error) {
 
-        const employee = req.body;
+    console.error(error);
 
-        return res.status(201).json({
-            success: true,
-            message: "Employee created successfully.",
-            data: employee
-        });
+    return res.status(500).json({
 
-    } catch (error) {
+      success: false,
+      message: "Internal server error."
 
-        return res.status(500).json({
-            success: false,
-            message: "Employee creation failed."
-        });
+    });
 
-    }
+  }
 
 });
 
 export default router;
+```
