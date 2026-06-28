@@ -1,13 +1,12 @@
 import express, { Application } from "express";
-import cors from "cors";
 import helmet from "helmet";
+import cors from "cors";
 import compression from "compression";
 import morgan from "morgan";
-import dotenv from "dotenv";
 
+import env from "./config/env";
 import { registerRoutes } from "./routes";
-
-dotenv.config();
+import { errorHandler } from "./middleware/error.middleware";
 
 const app: Application = express();
 
@@ -19,10 +18,12 @@ const app: Application = express();
 
 app.use(helmet());
 
-app.use(cors({
-    origin: process.env.CLIENT_URL || "*",
-    credentials: true
-}));
+app.use(
+    cors({
+        origin: env.CLIENT_URL,
+        credentials: true
+    })
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -38,7 +39,9 @@ app.use(compression());
 |--------------------------------------------------------------------------
 */
 
-app.use(morgan("dev"));
+if (env.NODE_ENV === "development") {
+    app.use(morgan("dev"));
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -46,37 +49,18 @@ app.use(morgan("dev"));
 |--------------------------------------------------------------------------
 */
 
-app.use(express.json({
-    limit: "10mb"
-}));
+app.use(express.json({ limit: "10mb" }));
 
-app.use(express.urlencoded({
-    extended: true,
-    limit: "10mb"
-}));
-
-/*
-|--------------------------------------------------------------------------
-| Health Check
-|--------------------------------------------------------------------------
-*/
-
-app.get("/", (_req, res) => {
-
-    return res.status(200).json({
-
-        success: true,
-        application: "GCC HR Enterprise",
-        version: "1.0.0",
-        status: "Running"
-
-    });
-
-});
+app.use(
+    express.urlencoded({
+        extended: true,
+        limit: "10mb"
+    })
+);
 
 /*
 |--------------------------------------------------------------------------
-| API Routes
+| Routes
 |--------------------------------------------------------------------------
 */
 
@@ -84,19 +68,10 @@ registerRoutes(app);
 
 /*
 |--------------------------------------------------------------------------
-| 404 Handler
+| Error Handler
 |--------------------------------------------------------------------------
 */
 
-app.use((_req, res) => {
-
-    return res.status(404).json({
-
-        success: false,
-        message: "Endpoint not found."
-
-    });
-
-});
+app.use(errorHandler);
 
 export default app;
