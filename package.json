@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
 
- "scripts": {
+ ```json
+"scripts": {
   "dev": "tsx watch src/server.ts",
   "build": "tsc",
   "start": "node dist/server.js",
@@ -18,7 +19,9 @@
   "prisma:studio": "prisma studio",
 
   "clean": "rm -rf dist"
-}
+},
+```
+
 
   "dependencies": {
 
