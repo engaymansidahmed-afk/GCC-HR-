@@ -19,7 +19,16 @@ import settingsRoutes from "./settings";
 import reportRoutes from "./reports";
 import aiRoutes from "./ai";
 console.log("✅ routes/index.ts loaded");
-export function registerRoutes(app: Express) {
+export function registerRoutes(app: Express): void {
+
+    console.log("✅ registerRoutes() called");
+
+    app.use("/api/auth", authRoutes);
+
+    app.use("/api/employees", employeeRoutes);
+
+    ...
+}
   app.use("/api/auth", authRoutes);
 
   app.use("/api/employees", employeeRoutes);
