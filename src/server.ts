@@ -1,15 +1,31 @@
 import app from "./app";
-
 import env from "./config/env";
 
-const PORT = env.PORT;
-const HOST = env.HOST;
+async function bootstrap(): Promise<void> {
 
-app.listen(PORT, HOST, () => {
-    console.log("========================================");
-    console.log(" GCC HR Enterprise Backend");
-    console.log("========================================");
-    console.log(` Environment : ${process.env.NODE_ENV || "development"}`);
-    console.log(` Server      : http://${HOST}:${PORT}`);
-    console.log("========================================");
-});
+    try {
+
+        app.listen(env.PORT, env.HOST, () => {
+
+            console.clear();
+
+            console.log("========================================");
+            console.log(" GCC HR Enterprise Backend");
+            console.log("========================================");
+            console.log(` Environment : ${env.NODE_ENV}`);
+            console.log(` Server      : http://${env.HOST}:${env.PORT}`);
+            console.log("========================================");
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        process.exit(1);
+
+    }
+
+}
+
+bootstrap();
