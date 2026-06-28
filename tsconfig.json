@@ -1,26 +1,124 @@
 {
   "compilerOptions": {
+
     "target": "ES2022",
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false,
-    "module": "ESNext",
+
+    "module": "NodeNext",
+
+    "moduleResolution": "NodeNext",
+
+    "rootDir": "./src",
+
+    "outDir": "./dist",
+
     "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
+      "ES2022"
     ],
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
+
+    "strict": true,
+
+    "noImplicitAny": true,
+
+    "strictNullChecks": true,
+
+    "noUncheckedIndexedAccess": true,
+
+    "exactOptionalPropertyTypes": true,
+
+    "noImplicitReturns": true,
+
+    "noFallthroughCasesInSwitch": true,
+
+    "forceConsistentCasingInFileNames": true,
+
+    "esModuleInterop": true,
+
+    "allowSyntheticDefaultImports": true,
+
+    "resolveJsonModule": true,
+
     "isolatedModules": true,
-    "moduleDetection": "force",
-    "allowJs": true,
-    "jsx": "react-jsx",
+
+    "skipLibCheck": true,
+
+    "sourceMap": true,
+
+    "declaration": true,
+
+    "removeComments": false,
+
+    "types": [
+      "node"
+    ],
+
+    "baseUrl": "./src",
+
     "paths": {
+
       "@/*": [
-        "./*"
+        "*"
+      ],
+
+      "@config/*": [
+        "config/*"
+      ],
+
+      "@controllers/*": [
+        "controllers/*"
+      ],
+
+      "@services/*": [
+        "services/*"
+      ],
+
+      "@repositories/*": [
+        "repositories/*"
+      ],
+
+      "@routes/*": [
+        "routes/*"
+      ],
+
+      "@middleware/*": [
+        "middleware/*"
+      ],
+
+      "@validators/*": [
+        "validators/*"
+      ],
+
+      "@utils/*": [
+        "utils/*"
+      ],
+
+      "@lib/*": [
+        "lib/*"
+      ],
+
+      "@dto/*": [
+        "dto/*"
+      ],
+
+      "@types/*": [
+        "types/*"
       ]
-    },
-    "allowImportingTsExtensions": true,
-    "noEmit": true
-  }
+
+    }
+
+  },
+
+  "include": [
+
+    "src/**/*"
+
+  ],
+
+  "exclude": [
+
+    "node_modules",
+
+    "dist"
+
+  ]
+
 }
