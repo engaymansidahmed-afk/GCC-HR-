@@ -5,6 +5,7 @@
   "type": "module",
 
  ```json
+```json
 "scripts": {
   "dev": "tsx watch src/server.ts",
   "build": "tsc",
