@@ -18,7 +18,7 @@ import notificationRoutes from "./notifications";
 import settingsRoutes from "./settings";
 import reportRoutes from "./reports";
 import aiRoutes from "./ai";
-
+console.log("✅ routes/index.ts loaded");
 export function registerRoutes(app: Express) {
   app.use("/api/auth", authRoutes);
 
