@@ -2001,7 +2001,11 @@ app.post('/api/communication/accounts/action', (req, res) => {
   res.json({ success: true, message });
 });
 
+// -----------------------------------------------------------------------------
+// Register Enterprise Routes
+// -----------------------------------------------------------------------------
 
+registerRoutes(app);
 // Catch-all route for undefined API endpoints (guarantees JSON output, never HTML fallback)
 app.all('/api/*', (req, res, next) => {
   const err = new Error(`API endpoint ${req.method} ${req.path} not found or HTTP method unsupported`);
