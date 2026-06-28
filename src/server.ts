@@ -2,7 +2,8 @@ import app from "./app";
 
 import env from "./config/env";
 
-const HOST = process.env.HOST || "0.0.0.0";
+const PORT = env.PORT;
+const HOST = env.HOST;
 
 app.listen(PORT, HOST, () => {
     console.log("========================================");
