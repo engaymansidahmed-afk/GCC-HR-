@@ -1,6 +1,6 @@
 import app from "./app";
 
-const PORT = Number(process.env.PORT) || 3000;
+import env from "./config/env";
 
 const HOST = process.env.HOST || "0.0.0.0";
 
