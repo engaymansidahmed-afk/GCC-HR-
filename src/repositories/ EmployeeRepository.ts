@@ -1,72 +1,49 @@
-import { prisma } from "../lib/prisma";
+import { Employee } from "@prisma/client";
+import { BaseRepository } from "./BaseRepository";
 
-export class EmployeeRepository {
+export class EmployeeRepository extends BaseRepository {
 
-    static async findAll() {
+    async findAll(): Promise<Employee[]> {
 
-        return await prisma.employee.findMany({
+        return this.prisma.employee.findMany({
 
             include: {
-
                 company: true,
-
                 branch: true,
-
                 department: true,
-
                 position: true
-
             },
 
             orderBy: {
-
                 createdAt: "desc"
-
             }
 
         });
 
     }
 
-    static async findById(id: string) {
+    async findById(id: string) {
 
-        return await prisma.employee.findUnique({
+        return this.prisma.employee.findUnique({
 
             where: {
-
                 id
-
             },
 
             include: {
-
                 company: true,
-
                 branch: true,
-
                 department: true,
-
-                position: true,
-
-                attendances: true,
-
-                leaves: true,
-
-                payrolls: true,
-
-                loans: true,
-
-                custodies: true
-
+                position: true
             }
 
         });
 
     }
 
-    static async create(data: any) {
+    async create(data: any) {
 
-        return await prisma.employee.create({
+        return this.prisma.employee.create({
 
             data
 
@@ -74,17 +51,12 @@ export class EmployeeRepository {
 
     }
 
-    static async update(
-        id: string,
-        data: any
-    ) {
+    async update(id: string, data: any) {
 
-        return await prisma.employee.update({
+        return this.prisma.employee.update({
 
             where: {
-
                 id
-
             },
 
             data
@@ -93,14 +65,12 @@ export class EmployeeRepository {
 
     }
 
-    static async delete(id: string) {
+    async delete(id: string) {
 
-        return await prisma.employee.delete({
+        return this.prisma.employee.delete({
 
             where: {
-
                 id
-
             }
 
         });
